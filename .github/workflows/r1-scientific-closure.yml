@@ -35,20 +35,31 @@ jobs:
           $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
           & $py -m pip install pandas==3.0.3 psutil==7.0.0
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Align frozen scientific harness pin
+      - name: Align frozen harness and canonical checkout policy
         shell: pwsh
         run: |
           $expected = 'd684c133571822110726409e8bdcc8f646a47e30eb5cf6ca6ad9779d2f3c3b58'
           $script = 'scripts\run_r1_scientific_closure.py'
           $text = Get-Content $script -Raw
-          $old = '9a40807f4f42fe49a998544510dc15a8abce7dcad242021fefe5e095e008d46c'
-          if ($text -notmatch [regex]::Escape($old) -and $text -notmatch [regex]::Escape($expected)) {
+
+          $oldHash = '9a40807f4f42fe49a998544510dc15a8abce7dcad242021fefe5e095e008d46c'
+          if ($text -notmatch [regex]::Escape($oldHash) -and $text -notmatch [regex]::Escape($expected)) {
             throw 'scientific executor contains neither the historical nor corrected harness pin'
           }
-          $text = $text.Replace($old, $expected)
+          $text = $text.Replace($oldHash, $expected)
+
+          $oldPantheon = 'run("git", "checkout", "--detach", PANTHEON_COMMIT, cwd=pan)'
+          $newPantheon = 'run("git", "-c", "core.autocrlf=false", "checkout", "--detach", PANTHEON_COMMIT, cwd=pan)'
+          if ($text.Contains($oldPantheon)) {
+            $text = $text.Replace($oldPantheon, $newPantheon)
+          } elseif (-not $text.Contains($newPantheon)) {
+            throw 'Pantheon checkout contract not found in scientific executor'
+          }
+
           if ($text -notmatch [regex]::Escape($expected)) { throw 'failed to align harness pin in executor' }
+          if (-not $text.Contains($newPantheon)) { throw 'failed to enforce canonical Pantheon checkout bytes' }
           Set-Content $script $text -Encoding utf8
-          Write-Host "Harness pin aligned; decode and archive SHA verification remain fail-closed inside the Python scientific executor."
+          Write-Host 'Harness SHA and Pantheon canonical Git-byte policy aligned; scientific hashes/tolerances unchanged.'
       - name: Run G09-G14 scientific closure
         shell: pwsh
         run: |
