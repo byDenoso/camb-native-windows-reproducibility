@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/r1-robustness.yml'
       - 'scripts/run_r1_robustness.py'
+      - 'scripts/run_r1_robustness_v2.py'
       - 'scripts/run_r1_core.ps1'
       - 'scripts/r1_core_probe.py'
       - 'scripts/run_r1_scientific_closure.py'
@@ -37,7 +38,7 @@ jobs:
         run: |
           $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
           $work = Join-Path $env:RUNNER_TEMP 'ascom00323 robustness ç'
-          & $py scripts\run_r1_robustness.py --repo $PWD --work $work --receipts results\r1-robustness
+          & $py scripts\run_r1_robustness_v2.py --repo $PWD --work $work --receipts results\r1-robustness
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload robustness receipts
         if: always()
