@@ -1,35 +1,55 @@
 from __future__ import annotations
 
-import base64
 import hashlib
-from pathlib import Path
-import string
+import io
+import json
+from pathlib import Path, PurePosixPath
+import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
-PARTS = ROOT / "r1_scientific_harness" / "canonical_parts"
-EXPECTED_SHA256 = "f2cf596eee66cc59554a966e3cf04157f01b928b1dd5f62375670fadb52a84ec"
-_BASE64_CHARS = set(string.ascii_letters + string.digits + "+/=")
+ARCHIVE = ROOT / 'r1_scientific_harness' / 'ascom00323-paper-source.tar.gz'
+MANIFEST = ROOT / 'r1_scientific_harness' / 'source-manifest.json'
+MANIFEST_SHA256 = '0e22e67bc23db9a36f2e45a14455fec40bdf590b2b1f4059f53615e76b6f17bd'
 
 
-def _archive_bytes() -> bytes:
-    part_paths = sorted(PARTS.glob("part*.b64"))
-    assert [p.name for p in part_paths] == [f"part{i:02d}.b64" for i in range(1, 5)]
-    decoded_parts = []
-    for path in part_paths:
-        raw = path.read_text(encoding="ascii")
-        invalid = {ch for ch in raw if not ch.isspace() and ch not in _BASE64_CHARS}
-        assert not invalid, f"{path.name} contains non-Base64 characters: {sorted(invalid)!r}"
-        encoded = "".join(raw.split())
-        decoded_parts.append(base64.b64decode(encoded, validate=True))
-    return b"".join(decoded_parts)
+def sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
 
-def test_canonical_harness_parts_match_frozen_archive_identity():
-    observed = hashlib.sha256(_archive_bytes()).hexdigest()
-    assert observed == EXPECTED_SHA256
+def _load() -> tuple[bytes, bytes, dict]:
+    manifest_bytes = MANIFEST.read_bytes()
+    assert sha256(manifest_bytes) == MANIFEST_SHA256
+    manifest = json.loads(manifest_bytes)
+    archive_bytes = ARCHIVE.read_bytes()
+    assert sha256(archive_bytes) == manifest['archive_sha256']
+    return archive_bytes, manifest_bytes, manifest
 
 
-def test_one_byte_corruption_changes_harness_identity():
-    payload = bytearray(_archive_bytes())
-    payload[len(payload) // 2] ^= 0x01
-    assert hashlib.sha256(payload).hexdigest() != EXPECTED_SHA256
+def test_canonical_harness_archive_matches_manifest():
+    archive_bytes, _, manifest = _load()
+    expected = {entry['path']: entry for entry in manifest['files']}
+    observed = {}
+    with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode='r:gz') as tf:
+        for member in tf.getmembers():
+            assert not member.issym() and not member.islnk()
+            path = PurePosixPath(member.name)
+            assert not path.is_absolute() and '..' not in path.parts
+            if not member.isfile():
+                continue
+            prefix = PurePosixPath('r1_scientific_harness')
+            rel = path.relative_to(prefix).as_posix()
+            f = tf.extractfile(member)
+            assert f is not None
+            data = f.read()
+            observed[rel] = {'size_bytes': len(data), 'sha256': sha256(data)}
+    assert set(observed) == set(expected)
+    for rel, entry in expected.items():
+        assert observed[rel]['size_bytes'] == entry['size_bytes']
+        assert observed[rel]['sha256'] == entry['sha256']
+
+
+def test_one_byte_corruption_changes_archive_identity():
+    archive_bytes, _, manifest = _load()
+    corrupted = bytearray(archive_bytes)
+    corrupted[len(corrupted) // 2] ^= 0x01
+    assert sha256(corrupted) != manifest['archive_sha256']

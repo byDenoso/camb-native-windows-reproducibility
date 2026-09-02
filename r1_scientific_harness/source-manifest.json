@@ -1,0 +1,268 @@
+{
+  "archive": "ascom00323-paper-source.tar.gz",
+  "archive_sha256": "5add06fbc244116fbdf4415457a8609f061039853dfea3f571826e939b18ebd2",
+  "base_runtime_sha256": "e521ca90f6182258e8fa01e127907044c8b94b7e0d7124a81bf4c62be3402e41",
+  "files": [
+    {
+      "path": "configs/paper_validation_v6.json",
+      "sha256": "3b4157de2a90e1a5813c58f3c112b4c1ba431d9c7c4b1d63ca6e74e28ef7f6ea",
+      "size_bytes": 773
+    },
+    {
+      "path": "peer_multianchor/__init__.py",
+      "sha256": "3a7faabd52fc71af8a52b2063aeeaa118b1ed061fc2f00a5c01a55c23c1725b1",
+      "size_bytes": 44
+    },
+    {
+      "path": "peer_multianchor/anchors.py",
+      "sha256": "aa4e94088c9a46295b4f7c46349588af7b21e9ddbfdc1a4bb20fa6d6bfdecf77",
+      "size_bytes": 3008
+    },
+    {
+      "path": "peer_multianchor/hierarchy.py",
+      "sha256": "32af1baf4655c51e5f4593d3cb182e3ce919119e9b8b0a62fe6dde30312b3cdf",
+      "size_bytes": 8752
+    },
+    {
+      "path": "peer_multianchor/ladder.py",
+      "sha256": "f40405083b5aa9cfec1cd662571feef3a26b7d7547f2f52d92a96054be5bbb1f",
+      "size_bytes": 8888
+    },
+    {
+      "path": "peer_multianchor/pipeline.py",
+      "sha256": "59e8f120933cad3aba9bd7798c5e19b69fd359d212d845a79df3a0837674e62c",
+      "size_bytes": 20896
+    },
+    {
+      "path": "peer_multianchor/products.py",
+      "sha256": "9da4b2c9dd8b771660a568098f1fbe685a64652664b26fc48be4596720b9756f",
+      "size_bytes": 1534
+    },
+    {
+      "path": "peer_multianchor/propagation.py",
+      "sha256": "05dbcdb067c46018d000c676fcda08fb95810e8ba143fa943d1adf21e1645a69",
+      "size_bytes": 4931
+    },
+    {
+      "path": "peer_platform/__init__.py",
+      "sha256": "9f4df1d01209264c5ec452714100c86b3dc9dd1108d8dadf77ece817a286f602",
+      "size_bytes": 52
+    },
+    {
+      "path": "peer_platform/act_benchmark.py",
+      "sha256": "f48d8964d21d8e7ae89ac29288b1845dd6917f8aedc14ceb0d40da6dfe0f5c82",
+      "size_bytes": 7984
+    },
+    {
+      "path": "peer_platform/act_likelihood.py",
+      "sha256": "b5a31d922b850e2a355bf416c87b5ee65f3f698773d743119940c57532e2c1b1",
+      "size_bytes": 20096
+    },
+    {
+      "path": "peer_platform/adaptive_execution_v4.py",
+      "sha256": "77b4bfb654707240be33a6e703eac1feefc5d8b6c04bdcfd8a12c2d5660b8c76",
+      "size_bytes": 3067
+    },
+    {
+      "path": "peer_platform/bao_runtime.py",
+      "sha256": "f60d25d78a86aeb90d5539e19ccde87c227f0a5b45a79730cf18cad533f7a23e",
+      "size_bytes": 3792
+    },
+    {
+      "path": "peer_platform/benchmark_v3.py",
+      "sha256": "bb01604d84b68d83f9d96c20c914a059a57ac5cbe44a8731268ad4a2da7b4c98",
+      "size_bytes": 10588
+    },
+    {
+      "path": "peer_platform/benchmark_v4.py",
+      "sha256": "bc118d8600fb7f99b810d07039873db6744ce161235a3bffb17bdf35ca946bf0",
+      "size_bytes": 12021
+    },
+    {
+      "path": "peer_platform/benchmark_v5.py",
+      "sha256": "78ef907f39fabd4932232d6d12ea7f8cd2eecc85a6321c9365307926c1accaa6",
+      "size_bytes": 13506
+    },
+    {
+      "path": "peer_platform/camb_stack_v3.py",
+      "sha256": "35b4d1bb9a82b6cb5a87be5b4aff403cf107d8f9e75a40e7a7ca8b9a6c183c9f",
+      "size_bytes": 26204
+    },
+    {
+      "path": "peer_platform/cobaya_bridge_v4.py",
+      "sha256": "8f3fa83c58a47a47362ce9ad1e3d85749e55998b43061a7da94f12d2281e7957",
+      "size_bytes": 4375
+    },
+    {
+      "path": "peer_platform/cobaya_campaign_v5.py",
+      "sha256": "5b11cd2222c083b8b8a702fa853eee8b5c3ab66e6e0e4da8b6768602d24f8a1d",
+      "size_bytes": 10713
+    },
+    {
+      "path": "peer_platform/cobaya_doctor.py",
+      "sha256": "99b56193a747a69668a96c9905bafa49a8b973e0cb807379be219c93066e46cd",
+      "size_bytes": 4122
+    },
+    {
+      "path": "peer_platform/desi_likelihood.py",
+      "sha256": "7eed208ab224bafe61449c81940599a0beda37688f0894b43eeee94c973fb4dc",
+      "size_bytes": 8531
+    },
+    {
+      "path": "peer_platform/desi_probe.py",
+      "sha256": "1fcf78ab121eb4f0b7be12c4adaeb4dd85146efa8e227f1f67269f260d7607ac",
+      "size_bytes": 9988
+    },
+    {
+      "path": "peer_platform/late_time_bundle_v4.py",
+      "sha256": "4492e1a911485aaabbb61c6112489a06840a3908581ed8220e70f723e9cb402a",
+      "size_bytes": 5349
+    },
+    {
+      "path": "peer_platform/late_time_campaign_v5.py",
+      "sha256": "d33ef6fcb075a235e4500d8fcd137d3de440a930a46027cc997363f0e1293c67",
+      "size_bytes": 10179
+    },
+    {
+      "path": "peer_platform/late_time_theory_v5.py",
+      "sha256": "2683ae55faf9d25874df38a7cff488b37211d0791615bd4c434f9480fc64e527",
+      "size_bytes": 8480
+    },
+    {
+      "path": "peer_platform/likelihood_session_v3.py",
+      "sha256": "fbba6f136e79bd262d390f66e8fa652bbeb408dc33e0aabfe226cb400af34ebc",
+      "size_bytes": 13213
+    },
+    {
+      "path": "peer_platform/linear_nuisance_v4.py",
+      "sha256": "04f353fb9b19b2865141eb1234d4751783468da13d0d2bb7af158da8c8d2412d",
+      "size_bytes": 8458
+    },
+    {
+      "path": "peer_platform/multi_anchor_runtime.py",
+      "sha256": "7d88c3508c6bb2351ea8d2f56a82bc16b276d1ac2cfd9836ed67ef163168a88b",
+      "size_bytes": 2916
+    },
+    {
+      "path": "peer_platform/native_campaign_doctor_v5.py",
+      "sha256": "2f28973c90ae16108b7b7cd50a7b2dd8b2ebb6c2e70d8668f4cb1c285ab05170",
+      "size_bytes": 4732
+    },
+    {
+      "path": "peer_platform/optimization_v3.py",
+      "sha256": "c7f52a12f941687ccbc12bbdcfc532a122ae6161e305dc97de888207a2008e6b",
+      "size_bytes": 34608
+    },
+    {
+      "path": "peer_platform/packaging_v6.py",
+      "sha256": "b540003ebdb68048a8eca23c3117871f8ac828755624c0aee64e31b45d465196",
+      "size_bytes": 7538
+    },
+    {
+      "path": "peer_platform/pantheon_plus.py",
+      "sha256": "7bf0efbd62b91b17c1b8a5edab9e8d3ad82f206c70d78a69c109022d0e74b3c7",
+      "size_bytes": 4952
+    },
+    {
+      "path": "peer_platform/pantheon_structured_v4.py",
+      "sha256": "10a832f440c53509a2da69d6ae1414081144cbcca34d73f3b5d91aa9687c93a6",
+      "size_bytes": 8919
+    },
+    {
+      "path": "peer_platform/paper_validation_v6.py",
+      "sha256": "79a5000098aee202cccdf692b75b2d0c2cd798fa1aa9a483213f81b6143a5bdd",
+      "size_bytes": 23063
+    },
+    {
+      "path": "peer_platform/planck_lowl.py",
+      "sha256": "1293316cd0b978b5c25d2007ae9c72865139c1954142983e0ea6e7e12c9a35fb",
+      "size_bytes": 2223
+    },
+    {
+      "path": "peer_platform/planck_probe.py",
+      "sha256": "df126a6a5ee940ee8c1dc74ead71743f6f3b331e51a8c772b3f679d52e4cfd61",
+      "size_bytes": 10557
+    },
+    {
+      "path": "peer_platform/planck_runtime.py",
+      "sha256": "f135161fc6303c9d4fb63a2248a53d9af737e0f4dd272724397207022e0fe0c5",
+      "size_bytes": 6359
+    },
+    {
+      "path": "peer_platform/python_guard.py",
+      "sha256": "07a176e28cd33265dd831ecf03d2bfddf049a22d288a3094a32a48e3e0e7c453",
+      "size_bytes": 684
+    },
+    {
+      "path": "peer_platform/shared_likelihood_stack_v4.py",
+      "sha256": "c5563a0ff014efc12477465422df51cb69429c214c6bbea2d9c0ff1b9f1bd348",
+      "size_bytes": 7823
+    },
+    {
+      "path": "peer_platform/source_audit.py",
+      "sha256": "72ac140276ebb9d0907bda8b842fd1e1443a79b8aa314a48d0fb1673a0d60b64",
+      "size_bytes": 1711
+    },
+    {
+      "path": "peer_platform/worker_v4.py",
+      "sha256": "f241ec3ff8590fa1a86032e161484db327fd33339009b6b85186b41facc60730",
+      "size_bytes": 12116
+    },
+    {
+      "path": "scripts/assemble_paper_validation_v6.py",
+      "sha256": "6c27be6422cd0a8cb4e88596bdc24c2f8289db78f958b7d5439fb37778b28f15",
+      "size_bytes": 4926
+    },
+    {
+      "path": "scripts/build_paper_overlay_v6.py",
+      "sha256": "086b158175f2d28b349ba77ea1282d4a86b0c73833cf172c034db3c9e90e108d",
+      "size_bytes": 6844
+    },
+    {
+      "path": "scripts/run_paper_validation_stage_v6.py",
+      "sha256": "ddc664ba1e9c95a5087447d9d844c68245ebec7b07b108ed405fc0ae66fa1b1b",
+      "size_bytes": 3952
+    },
+    {
+      "path": "scripts/run_paper_validation_v6.py",
+      "sha256": "324fb12775184ac01a7ef7caed19cca0b10549a099f645c3ceba934427e17c1e",
+      "size_bytes": 6586
+    },
+    {
+      "path": "tests/slow_worker_v4.py",
+      "sha256": "9a28f033f6a811301b1fe8a32cbd3ed7e1994b28d01180cfb5d451dcaa538ce8",
+      "size_bytes": 216
+    },
+    {
+      "path": "tests/test_optimized_runtime.py",
+      "sha256": "9339e0d495ef70e68353b0bdb64039003c454d0d7ecfd9304f880aee4da8685e",
+      "size_bytes": 4796
+    },
+    {
+      "path": "tests/test_packaging_v6.py",
+      "sha256": "10ffa543c8004f5769f9252cd54b05f1bffbb5751b0bb21c2f165a3590f418d5",
+      "size_bytes": 3587
+    },
+    {
+      "path": "tests/test_paper_validation_v6.py",
+      "sha256": "1d978ae799a4037e14597146bd16ac8f54eb60f48f1a2a77f04707ba5ebe44f7",
+      "size_bytes": 6202
+    },
+    {
+      "path": "tests/test_runtime_v3.py",
+      "sha256": "328963f259c1e3f206cdc49aabb45a5851debc68888ce1c5fb493b93ebae0ee8",
+      "size_bytes": 15310
+    },
+    {
+      "path": "tests/test_runtime_v4.py",
+      "sha256": "d84274c12dddeba3f772ff5c78b21f305f9e25558362cfe4ad94c3a88de38893",
+      "size_bytes": 20235
+    }
+  ],
+  "paper_overlay_sha256": "45c92f587f07329e3f63153c0fdd27ba9d6b272a27d675256a452423ba10fb46",
+  "schema": "ascom-00323-scientific-harness-source/v1",
+  "source_bundle_sha256": "d2f70586de177e4d910006f080607f2b31ec1e5b0129c0d648c692af143649f0",
+  "source_commit": "568812bcaee632364b77b6562392433687df6e9d",
+  "v3_overlay_sha256": "139e747b4f46ae8f74c21d239ea9575b2b3423dabdb795d01757a75c70c3ee6c",
+  "v4_overlay_sha256": "0bc99996c5836fd9a03701d7176407771352eced1bc4763cfa5bdbbd40198ca4"
+}
