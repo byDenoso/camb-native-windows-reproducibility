@@ -1,0 +1,1 @@
+Trigger file for the clean-room Windows scientific closure after the frozen harness SHA correction. No scientific contract, dataset, tolerance, or implementation changed.
