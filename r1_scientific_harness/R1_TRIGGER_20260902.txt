@@ -1,1 +1,2 @@
 Trigger file for the clean-room Windows scientific closure after the frozen harness SHA correction. No scientific contract, dataset, tolerance, or implementation changed.
+Retrigger after removing the duplicate PowerShell Base64 decoder; Python remains the sole fail-closed decoder and archive-hash authority.
