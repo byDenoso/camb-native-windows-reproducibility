@@ -9,20 +9,29 @@ import tarfile
 ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE = ROOT / 'r1_scientific_harness' / 'ascom00323-paper-source.tar.gz'
 MANIFEST = ROOT / 'r1_scientific_harness' / 'source-manifest.json'
-MANIFEST_SHA256 = '0e22e67bc23db9a36f2e45a14455fec40bdf590b2b1f4059f53615e76b6f17bd'
+MANIFEST_CANONICAL_SHA256 = '600cdef851ea4834f1e25456f51c9a044c6ef97f95c66d4888e20397b54d5f61'
 
 
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def canonical_json_bytes(value: object) -> bytes:
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(',', ':'),
+        ensure_ascii=False,
+    ).encode('utf-8')
+
+
 def _load() -> tuple[bytes, bytes, dict]:
-    manifest_bytes = MANIFEST.read_bytes()
-    assert sha256(manifest_bytes) == MANIFEST_SHA256
-    manifest = json.loads(manifest_bytes)
+    manifest = json.loads(MANIFEST.read_text(encoding='utf-8'))
+    manifest_identity = canonical_json_bytes(manifest)
+    assert sha256(manifest_identity) == MANIFEST_CANONICAL_SHA256
     archive_bytes = ARCHIVE.read_bytes()
     assert sha256(archive_bytes) == manifest['archive_sha256']
-    return archive_bytes, manifest_bytes, manifest
+    return archive_bytes, manifest_identity, manifest
 
 
 def test_canonical_harness_archive_matches_manifest():
@@ -46,6 +55,15 @@ def test_canonical_harness_archive_matches_manifest():
     for rel, entry in expected.items():
         assert observed[rel]['size_bytes'] == entry['size_bytes']
         assert observed[rel]['sha256'] == entry['sha256']
+
+
+def test_manifest_identity_is_line_ending_independent():
+    manifest = json.loads(MANIFEST.read_text(encoding='utf-8'))
+    lf = json.dumps(manifest, indent=2, sort_keys=False, ensure_ascii=False) + '\n'
+    crlf = lf.replace('\n', '\r\n')
+    assert sha256(lf.encode('utf-8')) != sha256(crlf.encode('utf-8'))
+    assert sha256(canonical_json_bytes(json.loads(lf))) == MANIFEST_CANONICAL_SHA256
+    assert sha256(canonical_json_bytes(json.loads(crlf))) == MANIFEST_CANONICAL_SHA256
 
 
 def test_one_byte_corruption_changes_archive_identity():
