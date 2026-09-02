@@ -1,0 +1,17 @@
+gate_id,required,category,description,status,receipt
+R01,true,harness,Versioned scientific harness identity and one-byte corruption sensitivity,pending,results/r1-robustness/R01.json
+R02,true,integrity,Missing and corrupted payloads fail closed,pending,results/r1-robustness/R02.json
+R03,true,fingerprint,Order invariance precision sensitivity and NaN/Inf rejection,pending,results/r1-robustness/R03.json
+R04,true,relocation,Runtime relocation to path with spaces and Unicode preserves logL,pending,results/r1-robustness/R04.json
+R05,true,line_endings,Canonical Git data identity survives Windows line-ending representation changes,pending,results/r1-robustness/R05.json
+R06,true,act_integrity,ACT public payload bitflip is detected,pending,results/r1-robustness/R06.json
+R07,true,repetition,Five fresh CAMB processes reproduce rdrag sigma8 theta-star,pending,results/r1-robustness/R07.json
+R08,true,threads,CAMB thread-count perturbation 1 vs 2 preserves observables,pending,results/r1-robustness/R08.json
+R09,true,cache,Cold warm and post-clear cache paths are numerically identical,pending,results/r1-robustness/R09.json
+R10,true,randomized_parity,Four independent 64-point LHS seeds preserve parity,pending,results/r1-robustness/R10.json
+R11,true,boundary,All 32 corners of frozen five-dimensional domain preserve parity,pending,results/r1-robustness/R11.json
+R12,true,eviction,Forced tiny-cache eviction and replay preserves parity,pending,results/r1-robustness/R12.json
+R13,true,negative_controls,Content corruption ABI mismatch undeclared parameters and precision change fail closed,pending,results/r1-robustness/R13.json
+R14,true,memory,1024-evaluation nuisance loop remains inside 128 MiB growth ceiling,pending,results/r1-robustness/R14.json
+R15,true,rebuild,Pantheon+ public compilation is deterministic across independent roots,pending,results/r1-robustness/R15.json
+R16,true,fresh_state,Fresh campaign replay with identical seed preserves numerical decision,pending,results/r1-robustness/R16.json
