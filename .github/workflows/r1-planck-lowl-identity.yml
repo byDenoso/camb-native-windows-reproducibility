@@ -1,0 +1,105 @@
+name: r1-planck-lowl-public-identity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/r1-planck-lowl-identity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  planck-lowl-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download official Planck 2018 baseline likelihood data
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results/r1-action .r1/planck
+          URL='https://pla.esac.esa.int/pla/aio/product-action?COSMOLOGY.FILE_ID=COM_Likelihood_Data-baseline_R3.00.tar.gz'
+          curl -L --fail --retry 5 --retry-delay 3 -o .r1/COM_Likelihood_Data-baseline_R3.00.tar.gz "$URL"
+          python - <<'PY'
+          import hashlib, json, pathlib
+          p=pathlib.Path('.r1/COM_Likelihood_Data-baseline_R3.00.tar.gz')
+          h=hashlib.sha256(p.read_bytes()).hexdigest()
+          pathlib.Path('results/r1-action/planck-baseline-archive.json').write_text(json.dumps({
+              'schema':'ascom-00323-planck-baseline-archive/v1',
+              'source':'Planck Legacy Archive',
+              'file':'COM_Likelihood_Data-baseline_R3.00.tar.gz',
+              'bytes':p.stat().st_size,
+              'sha256':h,
+              'status':'downloaded'
+          },indent=2,sort_keys=True)+'\n')
+          print('archive bytes',p.stat().st_size,'sha256',h)
+          PY
+      - name: Extract official plc_3.0 low_l subtree only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib, tarfile
+          archive=pathlib.Path('.r1/COM_Likelihood_Data-baseline_R3.00.tar.gz')
+          out=pathlib.Path('.r1/planck')
+          with tarfile.open(archive,'r:gz') as tf:
+              members=[]
+              for m in tf.getmembers():
+                  norm=m.name.replace('\\','/').lstrip('./')
+                  marker='plc_3.0/low_l/'
+                  pos=norm.find(marker)
+                  if pos >= 0 and m.isfile():
+                      m.name=norm[pos:]
+                      members.append(m)
+              if not members:
+                  raise SystemExit('official archive contains no plc_3.0/low_l files')
+              tf.extractall(out,members=members,filter='data')
+          print('extracted',len(members),'files')
+          PY
+      - name: Recompute canonical Planck low-l tree fingerprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,pathlib
+          base=pathlib.Path('.r1/planck').resolve()
+          files=[]
+          for path in sorted(p for p in base.rglob('*') if p.is_file()):
+              data=path.read_bytes()
+              files.append({'path':path.relative_to(base).as_posix(),'size':len(data),'sha256':hashlib.sha256(data).hexdigest()})
+          canonical=json.dumps(files,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode('utf-8')
+          report={
+              'schema':'ascom-00323-planck-lowl-tree/v1',
+              'file_count':len(files),
+              'total_bytes':sum(x['size'] for x in files),
+              'tree_sha256':hashlib.sha256(canonical).hexdigest(),
+              'expected':{'file_count':72,'total_bytes':17321811,'tree_sha256':'391768a25928ba2ecedb585f64464fbbf1f623bddfb57e0f3106b7b8c4ea12c0'},
+              'required_paths':[
+                  'plc_3.0/low_l/commander/commander_dx12_v3_2_29.clik',
+                  'plc_3.0/low_l/simall/simall_100x143_offlike5_EE_Aplanck_B.clik'
+              ]
+          }
+          report['required_paths_present']=all((base/p).exists() for p in report['required_paths'])
+          report['status']='verified' if (
+              report['file_count']==report['expected']['file_count'] and
+              report['total_bytes']==report['expected']['total_bytes'] and
+              report['tree_sha256']==report['expected']['tree_sha256'] and
+              report['required_paths_present']
+          ) else 'failed'
+          pathlib.Path('results/r1-action/planck-lowl-tree.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(report,indent=2,sort_keys=True))
+          if report['status']!='verified': raise SystemExit(1)
+          PY
+      - name: Upload Planck identity receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascom-00323-r1-planck-lowl-${{ github.run_id }}
+          path: results/r1-action
+          if-no-files-found: warn
