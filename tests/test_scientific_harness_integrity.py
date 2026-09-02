@@ -14,13 +14,14 @@ _BASE64_CHARS = set(string.ascii_letters + string.digits + "+/=")
 def _archive_bytes() -> bytes:
     part_paths = sorted(PARTS.glob("part*.b64"))
     assert [p.name for p in part_paths] == [f"part{i:02d}.b64" for i in range(1, 5)]
-    chunks = []
+    decoded_parts = []
     for path in part_paths:
         raw = path.read_text(encoding="ascii")
         invalid = {ch for ch in raw if not ch.isspace() and ch not in _BASE64_CHARS}
         assert not invalid, f"{path.name} contains non-Base64 characters: {sorted(invalid)!r}"
-        chunks.append("".join(raw.split()))
-    return base64.b64decode("".join(chunks), validate=True)
+        encoded = "".join(raw.split())
+        decoded_parts.append(base64.b64decode(encoded, validate=True))
+    return b"".join(decoded_parts)
 
 
 def test_canonical_harness_parts_match_frozen_archive_identity():
