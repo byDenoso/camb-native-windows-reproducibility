@@ -1,0 +1,46 @@
+name: r1-scientific-closure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/r1-scientific-closure.yml'
+      - 'r1_scientific_harness/**'
+      - 'scripts/run_r1_scientific_closure.py'
+      - 'scripts/run_r1_core.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-windows-scientific-closure:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Materialize exact CPython 3.12.13 and core scientific environment
+        shell: pwsh
+        run: ./scripts/run_r1_core.ps1
+      - name: Install closure-only public dependencies
+        shell: pwsh
+        run: |
+          $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
+          & $py -m pip install pandas==3.0.3 psutil==7.0.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run G09-G14 scientific closure
+        shell: pwsh
+        run: |
+          $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
+          $work = Join-Path $env:RUNNER_TEMP 'ascom00323-scientific-closure'
+          & $py scripts\run_r1_scientific_closure.py --repo $PWD --work $work --receipts results\r1-scientific
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload scientific closure receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascom-00323-r1-scientific-${{ github.run_id }}
+          path: |
+            results/r1-scientific
+            results/r1-action
+          if-no-files-found: warn
