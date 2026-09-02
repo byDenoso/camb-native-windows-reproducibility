@@ -1,0 +1,100 @@
+{
+  "schema": "ascom-00323-r1-promotion/v1",
+  "test_id": "ASCOM-00323-R1-HARDENING",
+  "date": "2026-09-02",
+  "promotion_state": "PROMOTED_VERIFIED_CORE",
+  "publication_ready": false,
+  "policy": "Only receipt-backed gates are promoted. Pending or acquisition-blocked gates cannot inherit PASS from adjacent evidence.",
+  "promoted": {
+    "G01_cpython_3_12_13_clean_room": {
+      "state": "PROMOTED",
+      "evidence": "GitHub Actions run 33670234148",
+      "boundary": "Official CPython 3.12.13 source hash verified and native Windows build completed on Windows Server 2025."
+    },
+    "G02_environment_identity": {
+      "state": "PROMOTED",
+      "evidence": "doctor --strict PASS in run 33670234148",
+      "boundary": "Registered clean-room Windows environment only."
+    },
+    "G03_camb_1_6_6_identity": {
+      "state": "PROMOTED",
+      "evidence": "CAMB 1.6.6 version + upstream commit 3ef0272d6f7ba1231128872e56e6d4c12af8267b + numerical replay",
+      "boundary": "Historical Linux source-wheel hash is retained as lineage and is not imposed as the Windows wheel hash."
+    },
+    "G04a_act_dr6_public_identity": {
+      "state": "PROMOTED",
+      "evidence": "GitHub Actions runs 33669841680 and 33670234148",
+      "source_fits_sha256": "c887dc9178d81f5e5e0ce76eca0cd3c9f089056630ab78a1cc4bb28ff8751c29",
+      "payload_sha256": "d3ca3ff9427ecb22141df32fb6b4398d3f9a3dcb1a10d22344b33c56a12b6484",
+      "payload_bytes": 9395992,
+      "dimensions": {"npol": 3, "nbin": 45, "nell": 8500, "ndata": 135}
+    },
+    "G04b_desi_dr2_public_identity": {
+      "state": "PROMOTED",
+      "evidence": "GitHub Actions run 33669841680",
+      "commit": "b7b8a36e9bccb063081f811f323cada21ab5fbdd",
+      "cov_sha256": "252a143274c8a07c78694c119617d36594f6d7965d00319ca611c6ffb886e509",
+      "mean_sha256": "9ac154ab583ce759c0f7eef3c978c7c70a6ead2d18774caceadf1a350a640585",
+      "boundary": "Hashes are computed from canonical Git blobs; Windows CRLF working-tree transformation is diagnostic only."
+    },
+    "G15_public_harness": {
+      "state": "PROMOTED",
+      "evidence": "15/15 public harness tests PASS in run 33670234148",
+      "boundary": "This does not claim equivalence to the historical 87/87 full suite."
+    },
+    "G16_relocation_smoke": {
+      "state": "PROMOTED",
+      "evidence": "relocated pytest + verify_artifact PASS in run 33670234148",
+      "boundary": "Smoke-level repository relocation; full likelihood-stack relocation remains separate."
+    },
+    "G18_camb_repeatability": {
+      "state": "PROMOTED",
+      "evidence": "r1_core_probe receipt in run 33670234148",
+      "boundary": "CAMB core numerical replay only; full registered workloads remain separate."
+    }
+  },
+  "pending": {
+    "G04c_planck_lowl_identity": {
+      "state": "BLOCKED_ACQUISITION",
+      "evidence": "GitHub Actions run 33670639517",
+      "blocker": "Planck Legacy Archive returned HTTP 503 for COM_Likelihood_Data-baseline_R3.00.tar.gz before extraction or fingerprinting.",
+      "historical_target": {"file_count": 72, "total_bytes": 17321811, "tree_sha256": "391768a25928ba2ecedb585f64464fbbf1f623bddfb57e0f3106b7b8c4ea12c0"}
+    },
+    "G05_m0_likelihood_replay": {
+      "state": "PENDING",
+      "historical_reference": {"logL": -395.4831594065799, "chi2": 790.966},
+      "blocker": "SACC provenance ambiguity: canonical 2026-07-28 pip freeze records 2.1.2 while 2026-07-29 M0 report records 2.4. Both variants must be replayed."
+    },
+    "G06_to_G14_scientific_workloads": {
+      "state": "PENDING",
+      "blocker": "No new R1 receipt set has yet closed the registered scientific workloads."
+    },
+    "G19_paper_replay": {
+      "state": "PENDING",
+      "blocker": "Depends on Planck identity and scientific-workload closure; tables and figures must be regenerated from the frozen repository state."
+    }
+  },
+  "evidence_artifacts": {
+    "r1_core": {
+      "run_id": 33670234148,
+      "artifact_id": 9862323581,
+      "artifact_digest": "sha256:24621a95eb06cfea25cee51ecb0e5daada60207447262bc12c1758ccce2b313c",
+      "head_sha": "01f2673572d06bd16800944be0438419d106b93f"
+    },
+    "public_data_identity": {
+      "run_id": 33669841680,
+      "artifact_id": 9862055486,
+      "artifact_digest": "sha256:9bbdc3927ab1101829a82abdd4eea8901b2f799b631d064ed635dcd9662df9ef",
+      "head_sha": "f3e81aa2bc2a785d755864cceb7221ceabecd14c"
+    },
+    "planck_lowl_attempt": {
+      "run_id": 33670639517,
+      "conclusion": "failure",
+      "classification": "acquisition failure, not scientific failure"
+    }
+  },
+  "lineage_notes": {
+    "historical_linux_camb_source_wheel_sha256": "4e38c3771329b2d4f5c185f8d8d7a0f183178d5b07957f18f9008f90e7d4b79d",
+    "public_windows_camb_1_6_6_wheel_sha256_observed_r1": "0307b75141ce832bfded753be33526c9e43951451ca32ecb6efa48ebfc29a6c5"
+  }
+}
