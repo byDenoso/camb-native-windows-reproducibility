@@ -18,7 +18,10 @@ def _declared_hash() -> str:
 
 
 def _archive_bytes() -> bytes:
-    return base64.b64decode(ARCHIVE_B64.read_text(encoding="utf-8").strip(), validate=True)
+    # The versioned Base64 is line-wrapped for reviewability. Remove only
+    # formatting whitespace, then keep strict alphabet/padding validation.
+    encoded = "".join(ARCHIVE_B64.read_text(encoding="utf-8").split())
+    return base64.b64decode(encoded, validate=True)
 
 
 def test_declared_harness_hash_matches_versioned_archive():
