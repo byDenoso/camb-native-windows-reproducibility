@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Verify the public DESI DR2 BAO data repository against the frozen paper manifest."""
+"""Verify the public DESI DR2 BAO data repository against the frozen paper manifest.
+
+The registered hashes refer to canonical Git blob bytes (LF line endings). A Windows
+checkout may materialize the same text as CRLF, so working-tree byte hashes are kept
+as diagnostics but never substituted for the canonical scientific content identity.
+"""
 from __future__ import annotations
 
 import argparse
@@ -15,12 +20,20 @@ EXPECTED_FILES = {
 }
 
 
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
 def sha256_file(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def git_blob_bytes(root: Path, rel: str) -> bytes:
+    return subprocess.check_output(["git", "-C", str(root), "show", f"HEAD:{rel}"])
 
 
 def main() -> int:
@@ -34,12 +47,20 @@ def main() -> int:
     ok = head == EXPECTED_COMMIT
     for rel, expected in EXPECTED_FILES.items():
         path = root / rel
-        observed = sha256_file(path) if path.is_file() else None
-        match = observed == expected
+        canonical = sha256_bytes(git_blob_bytes(root, rel))
+        working_tree = sha256_file(path) if path.is_file() else None
+        match = canonical == expected
         ok = ok and match
-        rows[rel] = {"sha256": observed, "expected_sha256": expected, "match": match}
+        rows[rel] = {
+            "canonical_git_blob_sha256": canonical,
+            "working_tree_sha256": working_tree,
+            "expected_sha256": expected,
+            "canonical_match": match,
+            "working_tree_differs_from_canonical": working_tree != canonical if working_tree else None,
+            "normalization_note": "Windows checkout may use CRLF; canonical Git blob identity is authoritative.",
+        }
     report = {
-        "schema": "ascom-00323-desi-dr2-public-identity/v1",
+        "schema": "ascom-00323-desi-dr2-public-identity/v2",
         "repository": "https://github.com/CobayaSampler/bao_data.git",
         "commit": head,
         "expected_commit": EXPECTED_COMMIT,
