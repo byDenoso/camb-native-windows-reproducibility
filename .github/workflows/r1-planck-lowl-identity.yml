@@ -32,6 +32,7 @@ jobs:
           from urllib.request import Request, urlopen
 
           NAME='COM_Likelihood_Data-baseline_R3.00.tar.gz'
+          EXPECTED_ARCHIVE_SHA='0b73171e3acc671c28184466a45485a2d1c1d93676b832abdfe688c7b04024e6'
           IRSA_INDEX='https://irsa.ipac.caltech.edu/data/Planck/release_3/software/'
           ESA=[
               'https://pla.esac.esa.int/pla/aio/product-action?COSMOLOGY.FILE_ID='+NAME,
@@ -63,11 +64,9 @@ jobs:
           except Exception as exc:
               discovery_errors.append({'source':'NASA/IPAC IRSA PR3 index','error':repr(exc)})
 
-          # IRSA first because it is an official U.S. PR3 archive and independent of the ESA endpoint.
           for url in ESA:
               candidates.append(('ESA Planck Legacy Archive',url))
 
-          # Preserve order while deduplicating URLs.
           seen=set(); unique=[]
           for source,url in candidates:
               if url not in seen:
@@ -85,13 +84,15 @@ jobs:
                               block=response.read(1024*1024)
                               if not block: break
                               handle.write(block); h.update(block); size += len(block)
-                      # Reject HTML/error bodies and unrelated Planck products before promotion.
+                      archive_sha=h.hexdigest()
+                      if archive_sha != EXPECTED_ARCHIVE_SHA:
+                          raise RuntimeError(f'official Planck baseline archive SHA mismatch: {archive_sha}')
                       with tarfile.open(temp,'r:gz') as tf:
                           has_lowl=any('plc_3.0/low_l/' in m.name.replace('\\','/') for m in tf.getmembers())
                       if not has_lowl:
                           raise RuntimeError('downloaded archive contains no plc_3.0/low_l subtree')
                       temp.replace(out)
-                      selected={'source':source,'url':url,'bytes':size,'sha256':h.hexdigest()}
+                      selected={'source':source,'url':url,'bytes':size,'sha256':archive_sha}
                       break
                   except Exception as exc:
                       attempts.append({'source':source,'url':url,'attempt':attempt,'error':repr(exc)})
@@ -101,13 +102,15 @@ jobs:
           if not selected:
               pathlib.Path('results/r1-action/planck-acquisition-failure.json').write_text(json.dumps({
                   'schema':'ascom-00323-planck-acquisition/v2','status':'failed',
+                  'expected_archive_sha256':EXPECTED_ARCHIVE_SHA,
                   'irsa_index':IRSA_INDEX,'discovery_errors':discovery_errors,'attempts':attempts,
               },indent=2,sort_keys=True)+'\n')
-              raise SystemExit('all official Planck acquisition paths failed')
+              raise SystemExit('all official Planck acquisition paths failed identity verification')
 
           pathlib.Path('results/r1-action/planck-baseline-archive.json').write_text(json.dumps({
               'schema':'ascom-00323-planck-baseline-archive/v2',
-              'file':NAME,'status':'downloaded',**selected,
+              'file':NAME,'status':'verified',**selected,
+              'expected_sha256':EXPECTED_ARCHIVE_SHA,
               'discovery_errors':discovery_errors,'failed_attempts':attempts,
           },indent=2,sort_keys=True)+'\n')
           print(json.dumps(selected,indent=2,sort_keys=True))
@@ -147,15 +150,21 @@ jobs:
               files.append({'path':path.relative_to(base).as_posix(),'size':len(data),'sha256':hashlib.sha256(data).hexdigest()})
           canonical=json.dumps(files,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode('utf-8')
           report={
-              'schema':'ascom-00323-planck-lowl-tree/v1',
+              'schema':'ascom-00323-planck-lowl-tree/v2',
               'file_count':len(files),
               'total_bytes':sum(x['size'] for x in files),
               'tree_sha256':hashlib.sha256(canonical).hexdigest(),
-              'expected':{'file_count':72,'total_bytes':17321811,'tree_sha256':'391768a25928ba2ecedb585f64464fbbf1f623bddfb57e0f3106b7b8c4ea12c0'},
+              'expected':{
+                  'archive_sha256':'0b73171e3acc671c28184466a45485a2d1c1d93676b832abdfe688c7b04024e6',
+                  'file_count':29,
+                  'total_bytes':8819443,
+                  'tree_sha256':'fd9f703d1d8223760089bed8d7c0de1bfa0a06a6085c5a348aa875c959c6567c'
+              },
               'required_paths':[
                   'plc_3.0/low_l/commander/commander_dx12_v3_2_29.clik',
                   'plc_3.0/low_l/simall/simall_100x143_offlike5_EE_Aplanck_B.clik'
-              ]
+              ],
+              'lineage_note':'The former 391768... / 72-file fingerprint belongs to a different full-high-l Planck payload and is intentionally excluded from the low-l identity gate.'
           }
           report['required_paths_present']=all((base/p).exists() for p in report['required_paths'])
           report['status']='verified' if (
