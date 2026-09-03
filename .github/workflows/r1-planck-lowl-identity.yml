@@ -1,4 +1,4 @@
-name: r1-planck-lowl-public-identity
+name: r1-planck-paper-payload-identity
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  planck-lowl-identity:
+  planck-paper-payload-identity:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -88,9 +88,10 @@ jobs:
                       if archive_sha != EXPECTED_ARCHIVE_SHA:
                           raise RuntimeError(f'official Planck baseline archive SHA mismatch: {archive_sha}')
                       with tarfile.open(temp,'r:gz') as tf:
-                          has_lowl=any('plc_3.0/low_l/' in m.name.replace('\\','/') for m in tf.getmembers())
-                      if not has_lowl:
-                          raise RuntimeError('downloaded archive contains no plc_3.0/low_l subtree')
+                          names=[m.name.replace('\\','/') for m in tf.getmembers()]
+                      required=('plc_3.0/low_l/','plc_3.0/hi_l/plik_lite/','plc_3.0/lensing/')
+                      if not all(any(prefix in name for name in names) for prefix in required):
+                          raise RuntimeError('downloaded archive lacks one or more frozen Planck paper payload subtrees')
                       temp.replace(out)
                       selected={'source':source,'url':url,'bytes':size,'sha256':archive_sha}
                       break
@@ -101,21 +102,21 @@ jobs:
 
           if not selected:
               pathlib.Path('results/r1-action/planck-acquisition-failure.json').write_text(json.dumps({
-                  'schema':'ascom-00323-planck-acquisition/v2','status':'failed',
+                  'schema':'ascom-00323-planck-acquisition/v3','status':'failed',
                   'expected_archive_sha256':EXPECTED_ARCHIVE_SHA,
                   'irsa_index':IRSA_INDEX,'discovery_errors':discovery_errors,'attempts':attempts,
               },indent=2,sort_keys=True)+'\n')
               raise SystemExit('all official Planck acquisition paths failed identity verification')
 
           pathlib.Path('results/r1-action/planck-baseline-archive.json').write_text(json.dumps({
-              'schema':'ascom-00323-planck-baseline-archive/v2',
+              'schema':'ascom-00323-planck-baseline-archive/v3',
               'file':NAME,'status':'verified',**selected,
               'expected_sha256':EXPECTED_ARCHIVE_SHA,
               'discovery_errors':discovery_errors,'failed_attempts':attempts,
           },indent=2,sort_keys=True)+'\n')
           print(json.dumps(selected,indent=2,sort_keys=True))
           PY
-      - name: Extract official plc_3.0 low_l subtree only
+      - name: Extract frozen Planck paper payload subtrees
         shell: bash
         run: |
           set -euo pipefail
@@ -123,21 +124,32 @@ jobs:
           import pathlib, tarfile
           archive=pathlib.Path('.r1/COM_Likelihood_Data-baseline_R3.00.tar.gz')
           out=pathlib.Path('.r1/planck')
+          prefixes=(
+              'plc_3.0/low_l/',
+              'plc_3.0/hi_l/plik_lite/',
+              'plc_3.0/lensing/',
+          )
           with tarfile.open(archive,'r:gz') as tf:
               members=[]
-              for m in tf.getmembers():
-                  norm=m.name.replace('\\','/').lstrip('./')
-                  marker='plc_3.0/low_l/'
-                  pos=norm.find(marker)
-                  if pos >= 0 and m.isfile():
-                      m.name=norm[pos:]
-                      members.append(m)
+              for original in tf.getmembers():
+                  if not original.isfile():
+                      continue
+                  norm=original.name.replace('\\','/').lstrip('./')
+                  selected=None
+                  for marker in prefixes:
+                      pos=norm.find(marker)
+                      if pos >= 0:
+                          selected=norm[pos:]
+                          break
+                  if selected is not None:
+                      original.name=selected
+                      members.append(original)
               if not members:
-                  raise SystemExit('official archive contains no plc_3.0/low_l files')
+                  raise SystemExit('official archive contains none of the frozen paper payload files')
               tf.extractall(out,members=members,filter='data')
           print('extracted',len(members),'files')
           PY
-      - name: Recompute canonical Planck low-l tree fingerprint
+      - name: Recompute frozen Planck paper payload tree fingerprint
         shell: bash
         run: |
           set -euo pipefail
@@ -150,21 +162,24 @@ jobs:
               files.append({'path':path.relative_to(base).as_posix(),'size':len(data),'sha256':hashlib.sha256(data).hexdigest()})
           canonical=json.dumps(files,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode('utf-8')
           report={
-              'schema':'ascom-00323-planck-lowl-tree/v2',
+              'schema':'ascom-00323-planck-paper-tree/v3',
               'file_count':len(files),
               'total_bytes':sum(x['size'] for x in files),
               'tree_sha256':hashlib.sha256(canonical).hexdigest(),
               'expected':{
                   'archive_sha256':'0b73171e3acc671c28184466a45485a2d1c1d93676b832abdfe688c7b04024e6',
-                  'file_count':29,
-                  'total_bytes':8819443,
-                  'tree_sha256':'fd9f703d1d8223760089bed8d7c0de1bfa0a06a6085c5a348aa875c959c6567c'
+                  'file_count':72,
+                  'total_bytes':17321811,
+                  'tree_sha256':'391768a25928ba2ecedb585f64464fbbf1f623bddfb57e0f3106b7b8c4ea12c0'
               },
               'required_paths':[
                   'plc_3.0/low_l/commander/commander_dx12_v3_2_29.clik',
-                  'plc_3.0/low_l/simall/simall_100x143_offlike5_EE_Aplanck_B.clik'
+                  'plc_3.0/low_l/simall/simall_100x143_offlike5_EE_Aplanck_B.clik',
+                  'plc_3.0/hi_l/plik_lite/plik_lite_v22_TTTEEE.clik',
+                  'plc_3.0/lensing/smicadx12_Dec5_ftl_mv2_ndclpp_p_teb_consext8.clik_lensing'
               ],
-              'lineage_note':'The former 391768... / 72-file fingerprint belongs to a different full-high-l Planck payload and is intentionally excluded from the low-l identity gate.'
+              'lineage_note':'Frozen 2026-08-04 paper/runtime contract: PlikLite + lensing + lowT + lowE. This is intentionally distinct from the 120-file full-high-l tree f7979838... and must not be reduced to the later 29-file low_l-only subset.',
+              'files':files,
           }
           report['required_paths_present']=all((base/p).exists() for p in report['required_paths'])
           report['status']='verified' if (
@@ -173,14 +188,14 @@ jobs:
               report['tree_sha256']==report['expected']['tree_sha256'] and
               report['required_paths_present']
           ) else 'failed'
-          pathlib.Path('results/r1-action/planck-lowl-tree.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
-          print(json.dumps(report,indent=2,sort_keys=True))
+          pathlib.Path('results/r1-action/planck-paper-tree.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          print(json.dumps({k:v for k,v in report.items() if k!='files'},indent=2,sort_keys=True))
           if report['status']!='verified': raise SystemExit(1)
           PY
       - name: Upload Planck identity receipts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ascom-00323-r1-planck-lowl-${{ github.run_id }}
+          name: ascom-00323-r1-planck-paper-${{ github.run_id }}
           path: results/r1-action
           if-no-files-found: warn
