@@ -40,6 +40,7 @@ jobs:
         run: |
           ACT_FITS="$(find "$RUNNER_TEMP/act-public" -name dr6_data_cmbonly.fits -print -quit)"
           test -n "$ACT_FITS"
+          mkdir -p "$RUNNER_TEMP/ascom00323-g15-public/registered-source"
           python scripts/run_g15_public_regression.py \
             --repo "$GITHUB_WORKSPACE" \
             --work "$RUNNER_TEMP/ascom00323-g15-public" \
