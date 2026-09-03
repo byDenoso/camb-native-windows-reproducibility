@@ -29,14 +29,16 @@ jobs:
       - name: Materialize exact CPython 3.12.13 and public R1 payloads
         shell: pwsh
         run: ./scripts/run_r1_core.ps1
-      - name: Install historical numerical runtime for robustness replay
+      - name: Preserve CAMB-compatible numerical stack for adversarial replay
         shell: pwsh
         run: |
           $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
-          # Frozen runtime versions recorded by the 2026-08-03 scientific release.
-          & $py -m pip install numpy==2.5.1 scipy==1.18.0 pandas==3.0.5 psutil==7.0.0
+          # Scientific closure separately certifies the historical 2.5.1/1.18.0 stack.
+          # Robustness includes fresh CAMB subprocess probes, so preserve the exact
+          # NumPy/SciPy pair already proven compatible by run_r1_core.ps1.
+          & $py -m pip install psutil==7.0.0
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $py -c "import numpy, scipy, pandas; assert numpy.__version__=='2.5.1'; assert scipy.__version__=='1.18.0'; assert pandas.__version__=='3.0.5'; print(numpy.__version__, scipy.__version__, pandas.__version__)"
+          & $py -c "import numpy, scipy, pandas, psutil; assert numpy.__version__=='2.4.4'; assert scipy.__version__=='1.17.1'; assert pandas.__version__=='3.0.5'; assert psutil.__version__=='7.0.0'; print(numpy.__version__, scipy.__version__, pandas.__version__, psutil.__version__)"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       # Authoritative adversarial run: source and data identities are validated fail-closed before R01-R16.
       - name: Execute adversarial robustness battery
