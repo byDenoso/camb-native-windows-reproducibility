@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+from windows_fcntl_compat import install_fcntl_compat
+
+install_fcntl_compat()
+
 # Import v2 for canonical split-harness transport and R01 receipt hardening.
 import run_r1_robustness_v2  # noqa: F401
 import run_r1_robustness as legacy
