@@ -7,6 +7,8 @@ on:
       - '.github/workflows/r1-scientific-closure.yml'
       - 'r1_scientific_harness/**'
       - 'scripts/run_r1_scientific_closure.py'
+      - 'scripts/run_r1_scientific_closure_v2.py'
+      - 'scripts/pantheon_cross_platform.py'
       - 'scripts/run_r1_core.ps1'
   pull_request:
     branches: [main]
@@ -14,6 +16,8 @@ on:
       - '.github/workflows/r1-scientific-closure.yml'
       - 'r1_scientific_harness/**'
       - 'scripts/run_r1_scientific_closure.py'
+      - 'scripts/run_r1_scientific_closure_v2.py'
+      - 'scripts/pantheon_cross_platform.py'
       - 'scripts/run_r1_core.ps1'
   workflow_dispatch:
 
@@ -29,11 +33,13 @@ jobs:
       - name: Materialize exact CPython 3.12.13 and core scientific environment
         shell: pwsh
         run: ./scripts/run_r1_core.ps1
-      - name: Install closure-only public dependencies
+      - name: Install historical numerical runtime for scientific closure
         shell: pwsh
         run: |
           $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
-          & $py -m pip install pandas==3.0.3 psutil==7.0.0
+          & $py -m pip install numpy==2.5.1 scipy==1.18.0 pandas==3.0.5 psutil==7.0.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $py -c "import numpy, scipy, pandas; assert numpy.__version__=='2.5.1'; assert scipy.__version__=='1.18.0'; assert pandas.__version__=='3.0.5'"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Align frozen harness and canonical checkout policy
         shell: pwsh
@@ -65,7 +71,7 @@ jobs:
         run: |
           $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
           $work = Join-Path $env:RUNNER_TEMP 'ascom00323-scientific-closure'
-          & $py scripts\run_r1_scientific_closure.py --repo $PWD --work $work --receipts results\r1-scientific
+          & $py scripts\run_r1_scientific_closure_v2.py --repo $PWD --work $work --receipts results\r1-scientific
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload scientific closure receipts
         if: always()
