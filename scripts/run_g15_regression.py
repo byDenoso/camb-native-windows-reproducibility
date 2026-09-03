@@ -13,7 +13,14 @@ import subprocess
 import sys
 import tarfile
 
+import pantheon_cross_platform
 import run_r1_scientific_closure as closure
+
+# G15 runs the exact historical tests on native Windows, so generated Pantheon
+# NPY/Cholesky bytes are platform-local diagnostics. Install the already-registered
+# cross-platform gate before any runtime construction: source Git bytes remain exact
+# identity and the generated factor must prove numerical equivalence at 1e-9.
+pantheon_cross_platform.install()
 
 MODULES = {
     "tests.test_optimized_runtime": 17,
@@ -175,7 +182,7 @@ def build_public_runtime(repo: Path, work: Path) -> tuple[Path, dict]:
     bao, pan = closure.clone_data(public_data)
     runtime, pantheon = closure.build_runtime(work / "public-runtime", bao, pan)
     return runtime, {
-        "construction": "public Cobaya BAO + frozen PantheonPlusSH0ES source through registered R1 compiler",
+        "construction": "public Cobaya BAO + frozen PantheonPlusSH0ES source through registered R1 compiler with cross-platform scientific equivalence gate",
         "bao_commit": closure.BAO_COMMIT,
         "pantheon_commit": closure.PANTHEON_COMMIT,
         "pantheon": pantheon,
@@ -250,7 +257,7 @@ def main() -> int:
     verified = all_pass and total == EXPECTED_TOTAL
     payload = {
         "gate_id": "G15",
-        "schema": "ascom-00323-g15-regression/v3",
+        "schema": "ascom-00323-g15-regression/v4",
         "status": "verified" if verified else "failed",
         "observed": {
             "workflow": "isolated Python process per exact registered historical test file reconstructed from the content-addressed paper source archive",
@@ -265,6 +272,7 @@ def main() -> int:
                 "sitecustomize": str(sitecustomize),
                 "fcntl_compat": "scripts/windows_fcntl_compat.py",
                 "gnu_tar": gnu_tar,
+                "pantheon_generated_payload_identity": "platform-local diagnostic; frozen Git source bytes + numerical equivalence are authoritative",
             },
         },
         "claim_boundary": "Fresh native-Windows replay of the paper's exact registered 87-test source regression suite. Test identities and counts are frozen; no substitute tests are accepted.",
