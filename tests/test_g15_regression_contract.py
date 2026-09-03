@@ -28,3 +28,20 @@ def test_g15_reconstructs_the_registered_paper_source_archive():
     assert "archive-parts-v3.json" in source
     assert "archive_parts_v3" in source
     assert "source-manifest.json" in source
+
+
+def test_g15_supplies_frozen_runtime_root_to_historical_tests():
+    source = RUNNER.read_text(encoding="utf-8")
+    assert 'env["PEER_LIKELIHOOD_RUNTIME_ROOT"]' in source
+
+
+def test_g15_installs_windows_fcntl_compat_for_child_interpreters():
+    source = RUNNER.read_text(encoding="utf-8")
+    assert "windows_fcntl_compat" in source
+    assert "sitecustomize.py" in source
+
+
+def test_g15_requires_gnu_tar_without_changing_packaging_tests():
+    source = RUNNER.read_text(encoding="utf-8")
+    assert "GNU tar" in source
+    assert "Git" in source and "usr" in source and "bin" in source
