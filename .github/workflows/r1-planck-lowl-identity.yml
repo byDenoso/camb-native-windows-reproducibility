@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/r1-planck-lowl-identity.yml'
+      - 'tests/test_planck_lowl_acquisition_fallback.py'
   workflow_dispatch:
 
 permissions:
@@ -19,26 +20,97 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Download official Planck 2018 baseline likelihood data
+      - name: Discover and download official Planck 2018 baseline likelihood data
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p results/r1-action .r1/planck
-          URL='https://pla.esac.esa.int/pla/aio/product-action?COSMOLOGY.FILE_ID=COM_Likelihood_Data-baseline_R3.00.tar.gz'
-          curl -L --fail --retry 5 --retry-delay 3 -o .r1/COM_Likelihood_Data-baseline_R3.00.tar.gz "$URL"
           python - <<'PY'
-          import hashlib, json, pathlib
-          p=pathlib.Path('.r1/COM_Likelihood_Data-baseline_R3.00.tar.gz')
-          h=hashlib.sha256(p.read_bytes()).hexdigest()
+          from html.parser import HTMLParser
+          import hashlib, json, pathlib, tarfile, time
+          from urllib.parse import urljoin
+          from urllib.request import Request, urlopen
+
+          NAME='COM_Likelihood_Data-baseline_R3.00.tar.gz'
+          IRSA_INDEX='https://irsa.ipac.caltech.edu/data/Planck/release_3/software/'
+          ESA=[
+              'https://pla.esac.esa.int/pla/aio/product-action?COSMOLOGY.FILE_ID='+NAME,
+              'https://pla.esac.esa.int/pla-sl/data-action?COSMOLOGY.FILE_ID='+NAME,
+          ]
+          out=pathlib.Path('.r1')/NAME
+
+          class Links(HTMLParser):
+              def __init__(self):
+                  super().__init__(); self.hrefs=[]
+              def handle_starttag(self, tag, attrs):
+                  if tag.lower()=='a':
+                      href=dict(attrs).get('href')
+                      if href: self.hrefs.append(href)
+
+          def get(url, timeout=60):
+              return urlopen(Request(url, headers={'User-Agent':'ASCOM-00323-reproducibility/1.0'}), timeout=timeout)
+
+          candidates=[]
+          discovery_errors=[]
+          try:
+              with get(IRSA_INDEX, 30) as r:
+                  html=r.read().decode('utf-8','replace')
+              parser=Links(); parser.feed(html)
+              for href in parser.hrefs:
+                  absolute=urljoin(IRSA_INDEX,href)
+                  if NAME.lower() in absolute.lower() or ('likelihood' in absolute.lower() and 'baseline' in absolute.lower() and 'r3.00' in absolute.lower()):
+                      candidates.append(('NASA/IPAC IRSA PR3',absolute))
+          except Exception as exc:
+              discovery_errors.append({'source':'NASA/IPAC IRSA PR3 index','error':repr(exc)})
+
+          # IRSA first because it is an official U.S. PR3 archive and independent of the ESA endpoint.
+          for url in ESA:
+              candidates.append(('ESA Planck Legacy Archive',url))
+
+          # Preserve order while deduplicating URLs.
+          seen=set(); unique=[]
+          for source,url in candidates:
+              if url not in seen:
+                  seen.add(url); unique.append((source,url))
+
+          attempts=[]; selected=None
+          for source,url in unique:
+              for attempt in range(1,4):
+                  try:
+                      temp=out.with_suffix(out.suffix+'.part')
+                      if temp.exists(): temp.unlink()
+                      h=hashlib.sha256(); size=0
+                      with get(url, 120) as response, temp.open('wb') as handle:
+                          while True:
+                              block=response.read(1024*1024)
+                              if not block: break
+                              handle.write(block); h.update(block); size += len(block)
+                      # Reject HTML/error bodies and unrelated Planck products before promotion.
+                      with tarfile.open(temp,'r:gz') as tf:
+                          has_lowl=any('plc_3.0/low_l/' in m.name.replace('\\','/') for m in tf.getmembers())
+                      if not has_lowl:
+                          raise RuntimeError('downloaded archive contains no plc_3.0/low_l subtree')
+                      temp.replace(out)
+                      selected={'source':source,'url':url,'bytes':size,'sha256':h.hexdigest()}
+                      break
+                  except Exception as exc:
+                      attempts.append({'source':source,'url':url,'attempt':attempt,'error':repr(exc)})
+                      if attempt < 3: time.sleep(3*attempt)
+              if selected: break
+
+          if not selected:
+              pathlib.Path('results/r1-action/planck-acquisition-failure.json').write_text(json.dumps({
+                  'schema':'ascom-00323-planck-acquisition/v2','status':'failed',
+                  'irsa_index':IRSA_INDEX,'discovery_errors':discovery_errors,'attempts':attempts,
+              },indent=2,sort_keys=True)+'\n')
+              raise SystemExit('all official Planck acquisition paths failed')
+
           pathlib.Path('results/r1-action/planck-baseline-archive.json').write_text(json.dumps({
-              'schema':'ascom-00323-planck-baseline-archive/v1',
-              'source':'Planck Legacy Archive',
-              'file':'COM_Likelihood_Data-baseline_R3.00.tar.gz',
-              'bytes':p.stat().st_size,
-              'sha256':h,
-              'status':'downloaded'
+              'schema':'ascom-00323-planck-baseline-archive/v2',
+              'file':NAME,'status':'downloaded',**selected,
+              'discovery_errors':discovery_errors,'failed_attempts':attempts,
           },indent=2,sort_keys=True)+'\n')
-          print('archive bytes',p.stat().st_size,'sha256',h)
+          print(json.dumps(selected,indent=2,sort_keys=True))
           PY
       - name: Extract official plc_3.0 low_l subtree only
         shell: bash
