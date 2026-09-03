@@ -44,3 +44,5 @@ jobs:
             results/r1-act-rdrag
             results/r1-action
           if-no-files-found: warn
+
+# Publication-readiness rerun: 2026-09-03.
