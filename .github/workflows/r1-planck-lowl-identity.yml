@@ -89,9 +89,14 @@ jobs:
                           raise RuntimeError(f'official Planck baseline archive SHA mismatch: {archive_sha}')
                       with tarfile.open(temp,'r:gz') as tf:
                           names=[m.name.replace('\\','/') for m in tf.getmembers()]
-                      required=('plc_3.0/low_l/','plc_3.0/hi_l/plik_lite/','plc_3.0/lensing/')
-                      if not all(any(prefix in name for name in names) for prefix in required):
-                          raise RuntimeError('downloaded archive lacks one or more frozen Planck paper payload subtrees')
+                      required=(
+                          'baseline/readme_baseline.md',
+                          'plc_3.0/low_l/',
+                          'plc_3.0/hi_l/plik_lite/',
+                          'plc_3.0/lensing/',
+                      )
+                      if not all(any(token in name for name in names) for token in required):
+                          raise RuntimeError('downloaded archive lacks one or more frozen Planck paper payload members')
                       temp.replace(out)
                       selected={'source':source,'url':url,'bytes':size,'sha256':archive_sha}
                       break
@@ -116,7 +121,7 @@ jobs:
           },indent=2,sort_keys=True)+'\n')
           print(json.dumps(selected,indent=2,sort_keys=True))
           PY
-      - name: Extract frozen Planck paper payload subtrees
+      - name: Extract exact frozen 72-file Planck paper tree
         shell: bash
         run: |
           set -euo pipefail
@@ -124,7 +129,7 @@ jobs:
           import pathlib, tarfile
           archive=pathlib.Path('.r1/COM_Likelihood_Data-baseline_R3.00.tar.gz')
           out=pathlib.Path('.r1/planck')
-          prefixes=(
+          subtree_markers=(
               'plc_3.0/low_l/',
               'plc_3.0/hi_l/plik_lite/',
               'plc_3.0/lensing/',
@@ -136,11 +141,16 @@ jobs:
                       continue
                   norm=original.name.replace('\\','/').lstrip('./')
                   selected=None
-                  for marker in prefixes:
-                      pos=norm.find(marker)
-                      if pos >= 0:
-                          selected=norm[pos:]
-                          break
+                  if norm.endswith('baseline/readme_baseline.md'):
+                      # Historical runtime extraction stripped the outer baseline/ directory;
+                      # the README therefore lives at share/planck/readme_baseline.md.
+                      selected='readme_baseline.md'
+                  else:
+                      for marker in subtree_markers:
+                          pos=norm.find(marker)
+                          if pos >= 0:
+                              selected=norm[pos:]
+                              break
                   if selected is not None:
                       original.name=selected
                       members.append(original)
@@ -149,7 +159,7 @@ jobs:
               tf.extractall(out,members=members,filter='data')
           print('extracted',len(members),'files')
           PY
-      - name: Recompute frozen Planck paper payload tree fingerprint
+      - name: Recompute historical peer-tree-fingerprint v1
         shell: bash
         run: |
           set -euo pipefail
@@ -160,9 +170,12 @@ jobs:
           for path in sorted(p for p in base.rglob('*') if p.is_file()):
               data=path.read_bytes()
               files.append({'path':path.relative_to(base).as_posix(),'size':len(data),'sha256':hashlib.sha256(data).hexdigest()})
-          canonical=json.dumps(files,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode('utf-8')
+          # This is the exact serialization used by peer_platform.planck_runtime.fingerprint_tree
+          # when the 2026-08-04 paper/runtime contract was frozen.
+          canonical=json.dumps(files,ensure_ascii=True,separators=(',',':'),sort_keys=True).encode()
           report={
-              'schema':'ascom-00323-planck-paper-tree/v3',
+              'schema':'ascom-00323-planck-paper-tree/v4',
+              'fingerprint_schema':'peer-tree-fingerprint/v1',
               'file_count':len(files),
               'total_bytes':sum(x['size'] for x in files),
               'tree_sha256':hashlib.sha256(canonical).hexdigest(),
@@ -173,12 +186,13 @@ jobs:
                   'tree_sha256':'391768a25928ba2ecedb585f64464fbbf1f623bddfb57e0f3106b7b8c4ea12c0'
               },
               'required_paths':[
+                  'readme_baseline.md',
                   'plc_3.0/low_l/commander/commander_dx12_v3_2_29.clik',
                   'plc_3.0/low_l/simall/simall_100x143_offlike5_EE_Aplanck_B.clik',
                   'plc_3.0/hi_l/plik_lite/plik_lite_v22_TTTEEE.clik',
                   'plc_3.0/lensing/smicadx12_Dec5_ftl_mv2_ndclpp_p_teb_consext8.clik_lensing'
               ],
-              'lineage_note':'Frozen 2026-08-04 paper/runtime contract: PlikLite + lensing + lowT + lowE. This is intentionally distinct from the 120-file full-high-l tree f7979838... and must not be reduced to the later 29-file low_l-only subset.',
+              'lineage_note':'Exact frozen 2026-08-04 share/planck tree: official baseline README + PlikLite + lensing + lowT + lowE. Distinct from the 120-file full-high-l tree and from the later 29-file low_l-only subset.',
               'files':files,
           }
           report['required_paths_present']=all((base/p).exists() for p in report['required_paths'])
