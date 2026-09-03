@@ -33,6 +33,7 @@ jobs:
           $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
           & $py -m pip install pandas==3.0.3 psutil==7.0.0
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      # Authoritative adversarial run: source and data identities are validated fail-closed before R01-R16.
       - name: Execute adversarial robustness battery
         shell: pwsh
         run: |
