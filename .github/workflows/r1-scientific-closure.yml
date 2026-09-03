@@ -92,3 +92,5 @@ jobs:
             results/r1-scientific
             results/r1-action
           if-no-files-found: warn
+
+# Validation trigger: 2026-09-03 publication-readiness closure.
