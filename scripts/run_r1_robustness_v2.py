@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import subprocess
 import tarfile
 
 import run_r1_robustness as legacy
@@ -16,6 +17,8 @@ PARTS_DIR_REL = Path('r1_scientific_harness/archive_parts_v3')
 SOURCE_MANIFEST_CANONICAL_SHA256 = '600cdef851ea4834f1e25456f51c9a044c6ef97f95c66d4888e20397b54d5f61'
 PARTS_MANIFEST_CANONICAL_SHA256 = 'ca99188fa37014bc9b9b3d7f936ffa19f219cca6aaa04f9acb9f25c1d0936b1a'
 ARCHIVE_SHA256 = '5add06fbc244116fbdf4415457a8609f061039853dfea3f571826e939b18ebd2'
+PANTHEON_TABLE_REL = 'Pantheon+_Data/4_DISTANCES_AND_COVAR/Pantheon+SH0ES.dat'
+PANTHEON_COV_REL = 'Pantheon+_Data/4_DISTANCES_AND_COVAR/Pantheon+SH0ES_STAT+SYS.cov'
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -113,6 +116,56 @@ def decode_canonical_harness(repo: Path, work: Path) -> tuple[Path, bytes]:
     return root, archive
 
 
+def _git_blob_bytes(repo: Path, commit: str, relative_path: str) -> bytes:
+    return subprocess.check_output(['git', '-C', str(repo), 'show', f'{commit}:{relative_path}'])
+
+
+def _install_pantheon_git_blob_materialization() -> None:
+    import run_r1_scientific_closure as closure
+
+    if getattr(closure, '_pantheon_git_blob_materialization_installed', False):
+        return
+    original = closure.compile_pantheon
+
+    def compile_pantheon_from_frozen_git_blob(runtime: Path, pan_repo: Path) -> dict:
+        table_path = pan_repo / PANTHEON_TABLE_REL
+        cov_path = pan_repo / PANTHEON_COV_REL
+        working_tree_table_sha256 = legacy.sha256_file(table_path)
+        working_tree_covariance_sha256 = legacy.sha256_file(cov_path)
+
+        table_bytes = _git_blob_bytes(pan_repo, closure.PANTHEON_COMMIT, PANTHEON_TABLE_REL)
+        cov_bytes = _git_blob_bytes(pan_repo, closure.PANTHEON_COMMIT, PANTHEON_COV_REL)
+        canonical_table_sha256 = sha256_bytes(table_bytes)
+        canonical_covariance_sha256 = sha256_bytes(cov_bytes)
+        if canonical_table_sha256 != closure.PANTHEON_TABLE_SHA:
+            raise RuntimeError(
+                'canonical Pantheon table Git blob hash mismatch: '
+                f'{canonical_table_sha256} != {closure.PANTHEON_TABLE_SHA}'
+            )
+        if canonical_covariance_sha256 != closure.PANTHEON_COV_SHA:
+            raise RuntimeError(
+                'canonical Pantheon covariance Git blob hash mismatch: '
+                f'{canonical_covariance_sha256} != {closure.PANTHEON_COV_SHA}'
+            )
+
+        # The frozen Git blob is the authority. This removes checkout-only CRLF/LF
+        # representation drift while failing closed if the commit content drifts.
+        table_path.write_bytes(table_bytes)
+        cov_path.write_bytes(cov_bytes)
+        result = original(runtime, pan_repo)
+        result.update({
+            'identity_authority': 'frozen Git blob',
+            'working_tree_table_sha256_before_canonicalization': working_tree_table_sha256,
+            'working_tree_covariance_sha256_before_canonicalization': working_tree_covariance_sha256,
+            'canonical_git_blob_table_sha256': canonical_table_sha256,
+            'canonical_git_blob_covariance_sha256': canonical_covariance_sha256,
+        })
+        return result
+
+    closure.compile_pantheon = compile_pantheon_from_frozen_git_blob
+    closure._pantheon_git_blob_materialization_installed = True
+
+
 _original_receipt = legacy.receipt
 
 
@@ -130,4 +183,5 @@ legacy.decode_canonical_harness = decode_canonical_harness
 legacy.receipt = receipt
 
 if __name__ == '__main__':
+    _install_pantheon_git_blob_materialization()
     raise SystemExit(legacy.main())
