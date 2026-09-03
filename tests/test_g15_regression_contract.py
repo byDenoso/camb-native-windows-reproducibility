@@ -10,6 +10,7 @@ EXPECTED = {
     "tests.test_runtime_v3": 21,
     "tests.test_runtime_v4": 34,
 }
+SOURCE_ARCHIVE_SHA256 = "5add06fbc244116fbdf4415457a8609f061039853dfea3f571826e939b18ebd2"
 
 
 def test_g15_runner_exists_and_freezes_the_87_test_module_contract():
@@ -19,3 +20,11 @@ def test_g15_runner_exists_and_freezes_the_87_test_module_contract():
         assert repr(module) in source or f'"{module}"' in source
         assert str(count) in source
     assert sum(EXPECTED.values()) == 87
+
+
+def test_g15_reconstructs_the_registered_paper_source_archive():
+    source = RUNNER.read_text(encoding="utf-8")
+    assert SOURCE_ARCHIVE_SHA256 in source
+    assert "archive-parts-v3.json" in source
+    assert "archive_parts_v3" in source
+    assert "source-manifest.json" in source
