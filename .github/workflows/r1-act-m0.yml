@@ -1,0 +1,49 @@
+name: r1-act-m0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/r1-act-m0.yml'
+      - 'scripts/run_g05_act_m0.py'
+      - 'scripts/run_r1_core.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  g05-act-fixed-point:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Materialize exact CPython 3.12.13 and core environment
+        shell: pwsh
+        run: ./scripts/run_r1_core.ps1
+      - name: Clone frozen official ACT likelihood source
+        shell: pwsh
+        run: |
+          git -c core.autocrlf=false clone https://github.com/ACTCollaboration/DR6-ACT-lite.git .r1\DR6-ACT-lite
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git -C .r1\DR6-ACT-lite checkout --detach 627aeafb88ae5ad1aa66b406bea2d65cfa66a27d
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $observed = (git -C .r1\DR6-ACT-lite rev-parse HEAD).Trim()
+          if ($observed -ne '627aeafb88ae5ad1aa66b406bea2d65cfa66a27d') { throw "ACT source commit mismatch: $observed" }
+      - name: Install frozen ACT source and run G05
+        shell: pwsh
+        run: |
+          $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
+          & $py -m pip install -e .r1\DR6-ACT-lite
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $py scripts\run_g05_act_m0.py --act-repo .r1\DR6-ACT-lite --receipt results\r1-act\G05.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload G05 receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascom-00323-g05-${{ github.run_id }}
+          path: |
+            results/r1-act
+            results/r1-action
+          if-no-files-found: warn
