@@ -53,3 +53,5 @@ jobs:
           name: ascom-00323-g15-public-${{ github.run_id }}
           path: results/r1/G15.json
           if-no-files-found: warn
+
+# Full publication battery rerun: 2026-09-03.
