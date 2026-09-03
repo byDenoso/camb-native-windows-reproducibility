@@ -19,3 +19,5 @@ def test_planck_paper_payload_workflow_has_official_discovery_and_frozen_fail_cl
     assert 'lensing' in source
     assert 'low_l' in source
     assert "report['status']='verified'" in source
+
+# Full publication battery rerun: 2026-09-03.
