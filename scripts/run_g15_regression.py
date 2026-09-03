@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
 import sys
+import tarfile
 
 import run_r1_scientific_closure as closure
 
@@ -19,6 +22,19 @@ MODULES = {
     "tests.test_runtime_v4": 34,
 }
 EXPECTED_TOTAL = 87
+SOURCE_ARCHIVE_SHA256 = "5add06fbc244116fbdf4415457a8609f061039853dfea3f571826e939b18ebd2"
+
+
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            h.update(block)
+    return h.hexdigest()
 
 
 def write_json(path: Path, payload: dict) -> None:
@@ -26,9 +42,80 @@ def write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def locate_test_file(harness: Path, module: str) -> Path:
+def reconstruct_registered_source(repo: Path, work: Path) -> tuple[Path, dict]:
+    fixture = repo / "r1_scientific_harness"
+    parts_manifest_path = fixture / "archive-parts-v3.json"
+    source_manifest_path = fixture / "source-manifest.json"
+    parts_dir = fixture / "archive_parts_v3"
+
+    parts_manifest = json.loads(parts_manifest_path.read_text(encoding="utf-8"))
+    source_manifest = json.loads(source_manifest_path.read_text(encoding="utf-8"))
+    if parts_manifest.get("archive_sha256") != SOURCE_ARCHIVE_SHA256:
+        raise RuntimeError("archive-parts-v3.json does not point to the registered paper source archive")
+    if source_manifest.get("archive_sha256") != SOURCE_ARCHIVE_SHA256:
+        raise RuntimeError("source-manifest.json does not point to the registered paper source archive")
+
+    chunks: list[bytes] = []
+    part_receipts = []
+    for part in parts_manifest["parts"]:
+        path = parts_dir / part["name"]
+        encoded = "".join(path.read_text(encoding="ascii").split()).encode("ascii")
+        if len(encoded) != int(part["encoded_chars"]):
+            raise RuntimeError(f"encoded length mismatch for {part['name']}")
+        if sha256_bytes(encoded) != part["encoded_sha256"]:
+            raise RuntimeError(f"encoded SHA mismatch for {part['name']}")
+        raw = base64.b64decode(encoded, validate=True)
+        if len(raw) != int(part["raw_bytes"]):
+            raise RuntimeError(f"raw length mismatch for {part['name']}")
+        if sha256_bytes(raw) != part["raw_sha256"]:
+            raise RuntimeError(f"raw SHA mismatch for {part['name']}")
+        chunks.append(raw)
+        part_receipts.append({"name": part["name"], "raw_sha256": part["raw_sha256"], "raw_bytes": len(raw)})
+
+    archive_bytes = b"".join(chunks)
+    if len(archive_bytes) != int(parts_manifest["archive_size_bytes"]):
+        raise RuntimeError("registered source archive byte count mismatch")
+    if sha256_bytes(archive_bytes) != SOURCE_ARCHIVE_SHA256:
+        raise RuntimeError("registered source archive SHA mismatch after reconstruction")
+
+    archive_path = work / "ascom00323-paper-source.tar.gz"
+    archive_path.write_bytes(archive_bytes)
+    extract_root = work / "paper-source"
+    extract_root.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(archive_path, "r:gz") as tf:
+        tf.extractall(extract_root, filter="data")
+
+    anchors = sorted(extract_root.rglob("tests/test_optimized_runtime.py"))
+    if len(anchors) != 1:
+        raise RuntimeError(f"cannot identify unique registered paper source root: {anchors}")
+    source_root = anchors[0].parent.parent
+
+    checked_files = 0
+    for item in source_manifest["files"]:
+        path = source_root / item["path"]
+        if not path.is_file():
+            raise RuntimeError(f"registered source file missing after reconstruction: {item['path']}")
+        if path.stat().st_size != int(item["size_bytes"]):
+            raise RuntimeError(f"registered source size mismatch: {item['path']}")
+        if sha256_file(path) != item["sha256"]:
+            raise RuntimeError(f"registered source SHA mismatch: {item['path']}")
+        checked_files += 1
+
+    provenance = {
+        "archive": source_manifest.get("archive", "ascom00323-paper-source.tar.gz"),
+        "archive_sha256": SOURCE_ARCHIVE_SHA256,
+        "archive_size_bytes": len(archive_bytes),
+        "part_count": len(part_receipts),
+        "source_manifest_files_verified": checked_files,
+        "base_runtime_sha256": source_manifest.get("base_runtime_sha256"),
+        "paper_overlay_sha256": source_manifest.get("paper_overlay_sha256"),
+    }
+    return source_root, provenance
+
+
+def locate_test_file(source_root: Path, module: str) -> Path:
     filename = module.rsplit(".", 1)[-1] + ".py"
-    matches = sorted(p for p in harness.rglob(filename) if p.is_file())
+    matches = sorted(p for p in source_root.rglob(filename) if p.is_file())
     if len(matches) != 1:
         raise RuntimeError(f"expected exactly one frozen G15 test file {filename}, found {len(matches)}: {matches}")
     return matches[0]
@@ -45,9 +132,12 @@ def main() -> int:
     work = args.work.resolve()
     work.mkdir(parents=True, exist_ok=True)
     harness = closure.decode_harness(repo, work)
+    source_root, source_provenance = reconstruct_registered_source(repo, work)
 
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(harness) + os.pathsep + env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(source_root), str(harness), env.get("PYTHONPATH", "")]
+    ).rstrip(os.pathsep)
     for key in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
         env[key] = "1"
 
@@ -55,7 +145,7 @@ def main() -> int:
     total = 0
     all_pass = True
     for module, expected_count in MODULES.items():
-        test_file = locate_test_file(harness, module)
+        test_file = locate_test_file(source_root, module)
         test_dir = test_file.parent
         proc = subprocess.run(
             [
@@ -69,7 +159,7 @@ def main() -> int:
                 test_file.name,
                 "-v",
             ],
-            cwd=harness,
+            cwd=source_root,
             env=env,
             text=True,
             stdout=subprocess.PIPE,
@@ -84,27 +174,28 @@ def main() -> int:
             total += observed_count
         records.append({
             "module": module,
-            "test_file": str(test_file.relative_to(harness)).replace("\\", "/"),
+            "test_file": str(test_file.relative_to(source_root)).replace("\\", "/"),
             "expected_tests": expected_count,
             "observed_tests": observed_count,
             "returncode": proc.returncode,
             "status": "pass" if passed else "fail",
-            "output_tail": proc.stdout[-4000:],
+            "output_tail": proc.stdout[-6000:],
         })
 
     verified = all_pass and total == EXPECTED_TOTAL
     payload = {
         "gate_id": "G15",
-        "schema": "ascom-00323-g15-regression/v1",
+        "schema": "ascom-00323-g15-regression/v2",
         "status": "verified" if verified else "failed",
         "observed": {
-            "workflow": "isolated Python process per frozen test file; unittest discovery from extracted harness",
+            "workflow": "isolated Python process per exact registered historical test file reconstructed from the content-addressed paper source archive",
             "modules": records,
             "expected_total": EXPECTED_TOTAL,
             "observed_total": total,
             "harness_archive_sha256": closure.HARNESS_TAR_SHA,
+            "paper_source": source_provenance,
         },
-        "claim_boundary": "Fresh replay of the paper's registered 87-test source regression suite from the frozen R1 harness.",
+        "claim_boundary": "Fresh native-Windows replay of the paper's exact registered 87-test source regression suite. Test identities and counts are frozen; no substitute tests are accepted.",
     }
     write_json(args.receipt, payload)
     print(json.dumps(payload, indent=2, sort_keys=True))
