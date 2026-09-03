@@ -1,29 +1,39 @@
 from pathlib import Path
 
 
-def test_pantheon_compilation_uses_scientific_equivalence_not_cross_os_byte_identity():
-    source = Path("scripts/run_r1_scientific_closure.py").read_text(encoding="utf-8")
+def test_pantheon_cross_platform_layer_preserves_source_identity_and_numeric_contract():
+    historical = Path("scripts/run_r1_scientific_closure.py").read_text(encoding="utf-8")
+    compat = Path("scripts/pantheon_cross_platform.py").read_text(encoding="utf-8")
 
-    # Frozen source bytes remain fail-closed authority.
-    assert 'PANTHEON_TABLE_SHA = "1cb0fc379ef066afdc2ffd1857681cc478024570d8a3eba284fb645775198cf8"' in source
-    assert 'PANTHEON_COV_SHA = "abf806d966485e64afdb359c87bffc0ecc00d05eff0a31ced66f247385df0fdc"' in source
-    assert 'Pantheon table hash mismatch' in source
-    assert 'Pantheon covariance hash mismatch' in source
+    # Frozen source bytes remain fail-closed authority in the recovered executor.
+    assert 'PANTHEON_TABLE_SHA = "1cb0fc379ef066afdc2ffd1857681cc478024570d8a3eba284fb645775198cf8"' in historical
+    assert 'PANTHEON_COV_SHA = "abf806d966485e64afdb359c87bffc0ecc00d05eff0a31ced66f247385df0fdc"' in historical
+    assert 'Pantheon table hash mismatch' in historical
+    assert 'Pantheon covariance hash mismatch' in historical
 
-    # Generated NPY/Cholesky bytes are platform-local artifacts, not cross-OS scientific identity.
-    assert 'compiled Pantheon manifest mismatch' not in source
-    assert 'expected_compiled_manifest = "01f86af61eb59ef3125b7a8f1acfb5a01eeddee8335e1f919f570ada4731adb5"' not in source
+    # The active compatibility layer may intercept only the known generated-manifest mismatch.
+    assert 'compiled Pantheon manifest mismatch:' in compat
+    assert 'canonical Pantheon table Git blob hash mismatch' in compat
+    assert 'canonical Pantheon covariance Git blob hash mismatch' in compat
+    assert 'PANTHEON_NUMERICAL_TOL' in compat
+    assert 'max_covariance_action_relative_error' in compat
+    assert 'max_solve_residual_relative_error' in compat
+    assert 'max_quadratic_form_relative_delta' in compat
+    assert 'scientific_equivalence' in compat
+    assert 'Pantheon compiled scientific equivalence failed' in compat
 
-    # Compilation must prove the generated factor represents the frozen covariance scientifically.
-    assert 'PANTHEON_NUMERICAL_TOL' in source
-    assert 'max_covariance_reconstruction_abs' in source
-    assert 'max_quadratic_form_abs_delta' in source
-    assert 'scientific_equivalence' in source
-    assert 'Pantheon compiled scientific equivalence failed' in source
+
+def test_active_windows_workflows_use_cross_platform_pantheon_executor():
+    robust = Path(".github/workflows/r1-robustness.yml").read_text(encoding="utf-8")
+    closure = Path(".github/workflows/r1-scientific-closure.yml").read_text(encoding="utf-8")
+    assert "scripts\\run_r1_robustness_v3.py" in robust
+    assert "scripts\\run_r1_scientific_closure_v2.py" in closure
+    assert "numpy==2.5.1 scipy==1.18.0 pandas==3.0.5" in robust
+    assert "numpy==2.5.1 scipy==1.18.0 pandas==3.0.5" in closure
 
 
-def test_r15_requires_rebuild_determinism_and_scientific_equivalence():
-    source = Path("scripts/run_r1_robustness.py").read_text(encoding="utf-8")
-    assert "scientific_equivalence" in source
-    assert "compiled_manifest_sha256" in source
+def test_r15_requires_same_platform_determinism_and_scientific_equivalence():
+    source = Path("scripts/run_r1_robustness_v3.py").read_text(encoding="utf-8")
     assert "same_platform_manifest_deterministic" in source
+    assert "scientific_equivalence" in source
+    assert "verified_manifests" in source
