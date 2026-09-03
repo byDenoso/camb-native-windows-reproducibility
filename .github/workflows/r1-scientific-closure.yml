@@ -8,6 +8,7 @@ on:
       - 'r1_scientific_harness/**'
       - 'scripts/run_r1_scientific_closure.py'
       - 'scripts/run_r1_scientific_closure_v2.py'
+      - 'scripts/run_g15_regression.py'
       - 'scripts/pantheon_cross_platform.py'
       - 'scripts/windows_fcntl_compat.py'
       - 'scripts/run_r1_core.ps1'
@@ -18,6 +19,7 @@ on:
       - 'r1_scientific_harness/**'
       - 'scripts/run_r1_scientific_closure.py'
       - 'scripts/run_r1_scientific_closure_v2.py'
+      - 'scripts/run_g15_regression.py'
       - 'scripts/pantheon_cross_platform.py'
       - 'scripts/windows_fcntl_compat.py'
       - 'scripts/run_r1_core.ps1'
@@ -83,6 +85,13 @@ jobs:
           $work = Join-Path $env:RUNNER_TEMP 'ascom00323-scientific-closure'
           & $py scripts\run_r1_scientific_closure_v2.py --repo $PWD --work $work --receipts results\r1-scientific
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run fresh G15 87-test regression suite
+        shell: pwsh
+        run: |
+          $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
+          $work = Join-Path $env:RUNNER_TEMP 'ascom00323-g15'
+          & $py scripts\run_g15_regression.py --repo $PWD --work $work --receipt results\r1-scientific\G15.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload scientific closure receipts
         if: always()
         uses: actions/upload-artifact@v4
@@ -92,5 +101,3 @@ jobs:
             results/r1-scientific
             results/r1-action
           if-no-files-found: warn
-
-# Validation trigger: 2026-09-03 publication-readiness closure.
