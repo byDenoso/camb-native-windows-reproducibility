@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -121,6 +122,66 @@ def locate_test_file(source_root: Path, module: str) -> Path:
     return matches[0]
 
 
+def require_gnu_tar(env: dict[str, str]) -> dict[str, str]:
+    candidates: list[Path] = []
+    if os.name == "nt":
+        candidates.extend(
+            [
+                Path("C:/Program Files/Git/usr/bin/tar.exe"),
+                Path("C:/Program Files (x86)/Git/usr/bin/tar.exe"),
+            ]
+        )
+    discovered = shutil.which("tar", path=env.get("PATH"))
+    if discovered:
+        candidates.append(Path(discovered))
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate).lower()
+        if key in seen or not candidate.is_file():
+            continue
+        seen.add(key)
+        probe = subprocess.run(
+            [str(candidate), "--version"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            errors="replace",
+        )
+        first_line = probe.stdout.splitlines()[0] if probe.stdout else ""
+        if probe.returncode == 0 and "GNU tar" in probe.stdout:
+            env["PATH"] = str(candidate.parent) + os.pathsep + env.get("PATH", "")
+            return {"path": str(candidate), "version": first_line}
+    raise RuntimeError("GNU tar is required for the frozen packaging_v6 tests; BSD tar is not accepted")
+
+
+def install_child_fcntl_compat(repo: Path, work: Path, env: dict[str, str]) -> Path:
+    compat = work / "windows-python-compat"
+    compat.mkdir(parents=True, exist_ok=True)
+    sitecustomize = compat / "sitecustomize.py"
+    sitecustomize.write_text(
+        "from windows_fcntl_compat import install_fcntl_compat\n"
+        "install_fcntl_compat()\n",
+        encoding="utf-8",
+    )
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(compat), str(repo / "scripts"), env.get("PYTHONPATH", "")]
+    ).rstrip(os.pathsep)
+    return sitecustomize
+
+
+def build_public_runtime(repo: Path, work: Path) -> tuple[Path, dict]:
+    public_data = work / "public-data"
+    public_data.mkdir(parents=True, exist_ok=True)
+    bao, pan = closure.clone_data(public_data)
+    runtime, pantheon = closure.build_runtime(work / "public-runtime", bao, pan)
+    return runtime, {
+        "construction": "public Cobaya BAO + frozen PantheonPlusSH0ES source through registered R1 compiler",
+        "bao_commit": closure.BAO_COMMIT,
+        "pantheon_commit": closure.PANTHEON_COMMIT,
+        "pantheon": pantheon,
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", type=Path, required=True)
@@ -133,11 +194,15 @@ def main() -> int:
     work.mkdir(parents=True, exist_ok=True)
     harness = closure.decode_harness(repo, work)
     source_root, source_provenance = reconstruct_registered_source(repo, work)
+    runtime_root, runtime_provenance = build_public_runtime(repo, work)
 
     env = os.environ.copy()
+    env["PEER_LIKELIHOOD_RUNTIME_ROOT"] = str(runtime_root)
     env["PYTHONPATH"] = os.pathsep.join(
         [str(source_root), str(harness), env.get("PYTHONPATH", "")]
     ).rstrip(os.pathsep)
+    sitecustomize = install_child_fcntl_compat(repo, work, env)
+    gnu_tar = require_gnu_tar(env)
     for key in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
         env[key] = "1"
 
@@ -185,7 +250,7 @@ def main() -> int:
     verified = all_pass and total == EXPECTED_TOTAL
     payload = {
         "gate_id": "G15",
-        "schema": "ascom-00323-g15-regression/v2",
+        "schema": "ascom-00323-g15-regression/v3",
         "status": "verified" if verified else "failed",
         "observed": {
             "workflow": "isolated Python process per exact registered historical test file reconstructed from the content-addressed paper source archive",
@@ -194,6 +259,13 @@ def main() -> int:
             "observed_total": total,
             "harness_archive_sha256": closure.HARNESS_TAR_SHA,
             "paper_source": source_provenance,
+            "runtime_root": str(runtime_root),
+            "runtime_provenance": runtime_provenance,
+            "windows_portability": {
+                "sitecustomize": str(sitecustomize),
+                "fcntl_compat": "scripts/windows_fcntl_compat.py",
+                "gnu_tar": gnu_tar,
+            },
         },
         "claim_boundary": "Fresh native-Windows replay of the paper's exact registered 87-test source regression suite. Test identities and counts are frozen; no substitute tests are accepted.",
     }
