@@ -26,6 +26,14 @@ def write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def locate_test_file(harness: Path, module: str) -> Path:
+    filename = module.rsplit(".", 1)[-1] + ".py"
+    matches = sorted(p for p in harness.rglob(filename) if p.is_file())
+    if len(matches) != 1:
+        raise RuntimeError(f"expected exactly one frozen G15 test file {filename}, found {len(matches)}: {matches}")
+    return matches[0]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", type=Path, required=True)
@@ -47,8 +55,20 @@ def main() -> int:
     total = 0
     all_pass = True
     for module, expected_count in MODULES.items():
+        test_file = locate_test_file(harness, module)
+        test_dir = test_file.parent
         proc = subprocess.run(
-            [sys.executable, "-m", "unittest", module, "-v"],
+            [
+                sys.executable,
+                "-m",
+                "unittest",
+                "discover",
+                "-s",
+                str(test_dir),
+                "-p",
+                test_file.name,
+                "-v",
+            ],
             cwd=harness,
             env=env,
             text=True,
@@ -64,6 +84,7 @@ def main() -> int:
             total += observed_count
         records.append({
             "module": module,
+            "test_file": str(test_file.relative_to(harness)).replace("\\", "/"),
             "expected_tests": expected_count,
             "observed_tests": observed_count,
             "returncode": proc.returncode,
@@ -77,7 +98,7 @@ def main() -> int:
         "schema": "ascom-00323-g15-regression/v1",
         "status": "verified" if verified else "failed",
         "observed": {
-            "workflow": "isolated Python process per test module",
+            "workflow": "isolated Python process per frozen test file; unittest discovery from extracted harness",
             "modules": records,
             "expected_total": EXPECTED_TOTAL,
             "observed_total": total,
