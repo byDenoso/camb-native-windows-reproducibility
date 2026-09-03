@@ -1,0 +1,54 @@
+name: r1-g15-public-regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/r1-g15-public-regression.yml'
+      - 'scripts/run_g15_public_regression.py'
+      - 'scripts/act_public_payload.py'
+      - 'scripts/pantheon_cross_platform.py'
+      - 'scripts/run_r1_scientific_closure.py'
+      - 'r1_scientific_harness/**'
+      - 'tests/test_g15_public_regression_contract.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-clean-composite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install registered scientific dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest==9.0.3 numpy==2.5.1 scipy==1.18.0 pandas==3.0.5 sacc==2.4 psutil==7.0.0 PyYAML==6.0.3 cobaya==3.6.2 camb==1.6.6 getdist==1.7.7 astropy==7.2.0
+      - name: Download official ACT DR6 public SACC
+        run: |
+          curl -L --fail --retry 5 --retry-delay 2 -o "$RUNNER_TEMP/dr6_data_cmbonly.tar.gz" https://lambda.gsfc.nasa.gov/data/act/pspipe/sacc_files/dr6_data_cmbonly.tar.gz
+          mkdir -p "$RUNNER_TEMP/act-public"
+          tar -xzf "$RUNNER_TEMP/dr6_data_cmbonly.tar.gz" -C "$RUNNER_TEMP/act-public"
+          find "$RUNNER_TEMP/act-public" -name dr6_data_cmbonly.fits -print
+      - name: Run exact public G15 regression
+        run: |
+          ACT_FITS="$(find "$RUNNER_TEMP/act-public" -name dr6_data_cmbonly.fits -print -quit)"
+          test -n "$ACT_FITS"
+          python scripts/run_g15_public_regression.py \
+            --repo "$GITHUB_WORKSPACE" \
+            --work "$RUNNER_TEMP/ascom00323-g15-public" \
+            --act-fits "$ACT_FITS" \
+            --receipt results/r1/G15.json
+      - name: Upload G15 receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascom-00323-g15-public-${{ github.run_id }}
+          path: results/r1/G15.json
+          if-no-files-found: warn
