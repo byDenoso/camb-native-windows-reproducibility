@@ -21,6 +21,14 @@ jobs:
       - name: Materialize exact CPython 3.12.13 and core environment
         shell: pwsh
         run: ./scripts/run_r1_core.ps1
+      - name: Restore registered 29-Jul likelihood stack
+        shell: pwsh
+        run: |
+          $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
+          & $py -m pip install --no-deps sacc==2.4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $py -c "import importlib.metadata as m; assert m.version('sacc') == '2.4'; print('sacc', m.version('sacc'))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Install and verify Microsoft MPI runtime
         shell: pwsh
         run: |
@@ -46,6 +54,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path $env:COBAYA_PACKAGES_PATH | Out-Null
           & $py -m pip install -e .r1\DR6-ACT-lite
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $py -c "import importlib.metadata as m; assert m.version('sacc') == '2.4'; print('G05 sacc', m.version('sacc'))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $py scripts\run_g05_act_m0.py --act-repo .r1\DR6-ACT-lite --receipt results\r1-act\G05.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload G05 receipt
@@ -57,5 +67,3 @@ jobs:
             results/r1-act
             results/r1-action
           if-no-files-found: warn
-
-# Publication-readiness rerun: 2026-09-03.
