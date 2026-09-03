@@ -21,6 +21,14 @@ jobs:
       - name: Materialize exact CPython 3.12.13 and core environment
         shell: pwsh
         run: ./scripts/run_r1_core.ps1
+      - name: Install and verify Microsoft MPI runtime
+        shell: pwsh
+        run: |
+          winget install --id Microsoft.msmpi -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
+          & $py -c "from mpi4py import MPI; assert MPI.COMM_WORLD.Get_size() == 1; print(MPI.Get_library_version())"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Clone frozen official ACT likelihood source
         shell: pwsh
         run: |
@@ -34,6 +42,8 @@ jobs:
         shell: pwsh
         run: |
           $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
+          $env:COBAYA_PACKAGES_PATH = Join-Path $env:RUNNER_TEMP 'cobaya-packages'
+          New-Item -ItemType Directory -Force -Path $env:COBAYA_PACKAGES_PATH | Out-Null
           & $py -m pip install -e .r1\DR6-ACT-lite
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $py scripts\run_g05_act_m0.py --act-repo .r1\DR6-ACT-lite --receipt results\r1-act\G05.json
