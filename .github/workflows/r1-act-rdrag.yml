@@ -1,0 +1,46 @@
+name: r1-act-rdrag
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/r1-act-rdrag.yml'
+      - 'scripts/act_raw_likelihood_r1.py'
+      - 'scripts/run_g07_act_kernel.py'
+      - 'scripts/run_g08_rdrag_continuation.py'
+      - 'scripts/run_r1_core.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  g07-g08:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Materialize exact CPython 3.12.13 and official ACT payload
+        shell: pwsh
+        run: ./scripts/run_r1_core.ps1
+      - name: Run G07 ACT direct-vs-projected parity
+        shell: pwsh
+        run: |
+          $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
+          & $py scripts\run_g07_act_kernel.py --payload .r1\act_dr6_cmbonly.bin --receipt results\r1-act-rdrag\G07.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run G08 real-CAMB rdrag continuation
+        shell: pwsh
+        run: |
+          $py = Join-Path $env:RUNNER_TEMP 'Python-3.12.13\PCbuild\amd64\python.exe'
+          & $py scripts\run_g08_rdrag_continuation.py --receipt results\r1-act-rdrag\G08.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload G07-G08 receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascom-00323-g07-g08-${{ github.run_id }}
+          path: |
+            results/r1-act-rdrag
+            results/r1-action
+          if-no-files-found: warn
