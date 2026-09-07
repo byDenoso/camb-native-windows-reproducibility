@@ -4,6 +4,7 @@ import math
 from pathlib import Path
 import sys
 
+import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -15,6 +16,7 @@ from peer_015_contract import (
     BlockResult,
     classify_blocks,
 )
+from peer_015_endpoints import endpoint_replay_pass, hash_array
 
 
 def test_014_physical_point_is_frozen_exactly():
@@ -97,3 +99,17 @@ def test_cmb_experiments_are_not_summed_as_independent_evidence():
 def test_block_result_rejects_nonfinite_scientific_delta():
     with pytest.raises(ValueError):
         BlockResult("act", "PASS", math.nan, 0.0)
+
+
+def test_endpoint_hash_is_byte_stable_and_dtype_sensitive():
+    a = np.array([1.0, 2.0, 3.0], dtype=np.float64)
+    assert hash_array(a) == hash_array(a.copy())
+    assert hash_array(a) != hash_array(a.astype(np.float32))
+
+
+def test_endpoint_replay_uses_frozen_014_tolerances():
+    reference = {"H0": 70.79500375310349, "rdrag": 143.10924612032258, "theta100": 1.0422199456800059}
+    assert endpoint_replay_pass(reference)
+    assert not endpoint_replay_pass({**reference, "H0": reference["H0"] * (1 + 1.1e-6)})
+    assert not endpoint_replay_pass({**reference, "rdrag": reference["rdrag"] * (1 + 1.1e-5)})
+    assert not endpoint_replay_pass({**reference, "theta100": reference["theta100"] * (1 + 1.1e-5)})
