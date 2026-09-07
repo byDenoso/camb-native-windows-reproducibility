@@ -59,3 +59,25 @@ jobs:
         env:
           CAMB_SOURCE: ${{ github.workspace }}/.r1/camb
         run: pytest -q tests/test_peer_axion_twofield_013.py
+      - name: Compile patched CAMB 1.6.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .r1/camb
+          python -m pip install -e . --no-build-isolation
+      - name: Load native two-field classes
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.r1/camb
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import camb
+          from camb import dark_energy
+          a = dark_energy.PeerAxionTwoField()
+          c = dark_energy.DeformedEarlyQuintessence()
+          assert type(a).__name__ == 'PeerAxionTwoField'
+          assert type(c).__name__ == 'DeformedEarlyQuintessence'
+          print(camb.__version__)
+          print(a.late_f, a.late_theta_i, a.late_amp)
+          PY
