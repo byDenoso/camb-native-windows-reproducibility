@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
+import sys
 
 import pytest
 
-from scripts.peer_015_contract import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from peer_015_contract import (
     MODEL_014,
     R1_MODEL,
     R2_MODEL,
