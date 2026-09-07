@@ -24,3 +24,70 @@ jobs:
         run: python -m pip install --upgrade pip pytest numpy
       - name: Run 015 contract tests
         run: pytest -q tests/test_peer_axion_twofield_like_015.py
+
+  exact-endpoints:
+    needs: contract-red-green
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      PEER_015_OUT: ${{ github.workspace }}/results/peer-axion-twofield-like-015
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install numerical dependencies
+        run: python -m pip install --upgrade pip setuptools wheel numpy scipy
+      - name: Checkout canonical CAMB 1.6.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch 1.6.6 https://github.com/cmbant/CAMB.git .r1/camb
+          test "$(git -C .r1/camb rev-parse HEAD)" = "3ef0272d6f7ba1231128872e56e6d4c12af8267b"
+      - name: Apply frozen native two-field patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.r1/camb/fortran/camb.f90')
+          text = p.read_text()
+          old = "allocate (TEarlyQuintessence::P%DarkEnergy)"
+          assert text.count(old) == 1
+          p.write_text(text.replace(old, "allocate(TEarlyQuintessence :: P%DarkEnergy)", 1))
+          PY
+          python scripts/peer_axion_twofield_013_patch.py .r1/camb
+      - name: Compile patched CAMB 1.6.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .r1/camb
+          python -m pip install -e . --no-build-isolation
+      - name: Generate frozen active/R1/R2 endpoints
+        env:
+          PYTHONPATH: ${{ github.workspace }}/scripts:${{ github.workspace }}/.r1/camb
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from peer_015_endpoints import generate_endpoints
+          out = Path(os.environ['PEER_015_OUT'])
+          bundle = generate_endpoints(out, lmax=8501)
+          print(json.dumps(bundle.manifest, indent=2, sort_keys=True))
+          if not bundle.manifest['deterministic']:
+              raise SystemExit('active endpoint determinism failed')
+          if not bundle.manifest['G1_endpoint_replay']:
+              raise SystemExit('014 endpoint replay gate failed')
+          PY
+      - name: Upload exact endpoint evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: T-DE26-PEER-PNGB-AXION-NATIVE-LIKE-BATTERY-015-ENDPOINTS
+          path: results/peer-axion-twofield-like-015/
+          if-no-files-found: warn
