@@ -19,3 +19,14 @@ def test_014_runner_materializes_frozen_common_background_recalibration_contract
     assert 'late_theta_i=math.pi - 0.8' in text
     assert 'frac_lambda0=1.0' in text
     assert 'G4' in text and 'G7' in text and 'G8' in text
+
+
+def test_014_root_stays_inside_preregistered_local_corridor_and_uses_resolved_fd_step():
+    text = Path("scripts/run_peer_axion_twofield_014.py").read_text()
+    assert 'LOG_LOCAL_BOUND = math.log(LOCAL_FACTOR)' in text
+    assert 'def inside_local_corridor' in text
+    assert 'F013 * math.exp' in text
+    assert 'M013 * math.exp' in text
+    assert '"eps": 1e-4' in text
+    assert '"factor": 0.2' in text
+    assert 'outside_local_corridor' in text
