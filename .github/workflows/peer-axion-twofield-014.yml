@@ -8,6 +8,7 @@ on:
       - '.github/workflows/peer-axion-twofield-014.yml'
       - 'tests/test_peer_axion_twofield_014_contract.py'
       - 'scripts/run_peer_axion_twofield_014.py'
+      - 'scripts/peer_014_diag_instrument.py'
       - 'scripts/peer_axion_twofield_013_patch.py'
       - 'scripts/run_peer_axion_twofield_013.py'
   pull_request:
@@ -16,6 +17,7 @@ on:
       - '.github/workflows/peer-axion-twofield-014.yml'
       - 'tests/test_peer_axion_twofield_014_contract.py'
       - 'scripts/run_peer_axion_twofield_014.py'
+      - 'scripts/peer_014_diag_instrument.py'
       - 'scripts/peer_axion_twofield_013_patch.py'
       - 'scripts/run_peer_axion_twofield_013.py'
   workflow_dispatch:
@@ -31,6 +33,7 @@ jobs:
       OMP_NUM_THREADS: '1'
       OPENBLAS_NUM_THREADS: '1'
       MKL_NUM_THREADS: '1'
+      PYTHONFAULTHANDLER: '1'
       PEER_014_OUT: ${{ github.workspace }}/results/peer-axion-twofield-014
     steps:
       - uses: actions/checkout@v4
@@ -85,14 +88,16 @@ jobs:
           print(camb.__version__)
           print(a.late_f, a.late_theta_i, a.late_amp)
           PY
-      - name: Execute preregistered scientific gates 014
+      - name: Instrument calibration crash boundary
+        run: python scripts/peer_014_diag_instrument.py scripts/run_peer_axion_twofield_014.py
+      - name: Execute diagnostic 014 calibration/Boltzmann path
         env:
           PYTHONPATH: ${{ github.workspace }}/.r1/camb
-        run: python scripts/run_peer_axion_twofield_014.py
-      - name: Upload test 014 evidence
+        run: python -X faulthandler scripts/run_peer_axion_twofield_014.py
+      - name: Upload test 014 diagnostic evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: T-DE26-PEER-PNGB-AXION-NATIVE-2FIELD-RECAL-014
+          name: T-DE26-PEER-PNGB-AXION-NATIVE-2FIELD-RECAL-014-DIAG
           path: results/peer-axion-twofield-014/
           if-no-files-found: warn
