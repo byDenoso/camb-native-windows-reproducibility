@@ -1,0 +1,41 @@
+name: peer-axion-twofield-013
+
+on:
+  push:
+    branches:
+      - science/peer-axion-twofield-013
+    paths:
+      - '.github/workflows/peer-axion-twofield-013.yml'
+      - 'tests/test_peer_axion_twofield_013.py'
+      - 'scripts/peer_axion_twofield_013_patch.py'
+      - 'scripts/run_peer_axion_twofield_013.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-two-field:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test/runtime dependencies
+        run: python -m pip install --upgrade pip pytest numpy scipy
+      - name: Checkout canonical CAMB 1.6.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch 1.6.6 https://github.com/cmbant/CAMB.git .r1/camb
+          test "$(git -C .r1/camb rev-parse HEAD)" = "3ef0272d6f7ba1231128872e56e6d4c12af8267b"
+      - name: RED contract test
+        env:
+          CAMB_SOURCE: ${{ github.workspace }}/.r1/camb
+        run: pytest -q tests/test_peer_axion_twofield_013.py
