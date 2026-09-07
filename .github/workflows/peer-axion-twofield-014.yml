@@ -1,0 +1,28 @@
+name: peer-axion-twofield-014
+
+on:
+  push:
+    branches:
+      - science/peer-axion-twofield-014
+    paths:
+      - '.github/workflows/peer-axion-twofield-014.yml'
+      - 'tests/test_peer_axion_twofield_014_contract.py'
+      - 'scripts/run_peer_axion_twofield_014.py'
+      - 'scripts/peer_axion_twofield_013_patch.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-red-green:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Contract test
+        run: |
+          python -m pip install -q pytest
+          pytest -q tests/test_peer_axion_twofield_014_contract.py
