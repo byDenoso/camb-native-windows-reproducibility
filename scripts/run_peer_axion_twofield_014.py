@@ -27,6 +27,7 @@ ZC_TARGET = 10**LOG10_ZC_TARGET
 CAL_F_TOL = 1e-5
 CAL_LOGZ_TOL = 1e-4
 LOCAL_FACTOR = 2.0
+LOG_LOCAL_BOUND = math.log(LOCAL_FACTOR)
 F013 = 0.1208288042833779
 M013 = 6.337671319929203e-55
 RDRAG_REF = 143.07359092203805
@@ -89,7 +90,20 @@ def comparator_params(*, f: float, m: float, cmb: bool, transfer: bool):
     return p
 
 
+def inside_local_corridor(f: float, m: float) -> bool:
+    if not (math.isfinite(f) and math.isfinite(m) and f > 0.0 and m > 0.0):
+        return False
+    log_f = math.log(f)
+    log_m = math.log(m)
+    return (
+        abs(log_f - math.log(F013)) <= LOG_LOCAL_BOUND + 1e-12
+        and abs(log_m - math.log(M013)) <= LOG_LOCAL_BOUND + 1e-12
+    )
+
+
 def tune_late_amp(f: float, m: float) -> tuple[float, list[dict]]:
+    if not inside_local_corridor(f, m):
+        raise ValueError("late closure requested outside preregistered local corridor")
     evals: list[dict] = []
     cache: dict[float, float] = {}
 
@@ -132,6 +146,8 @@ def tune_late_amp(f: float, m: float) -> tuple[float, list[dict]]:
 
 
 def _measure_common_background(f: float, m: float) -> tuple[dict, list[dict]]:
+    if not inside_local_corridor(f, m):
+        raise ValueError("common-background measurement outside preregistered local corridor")
     amp, amp_evals = tune_late_amp(f, m)
     p = active_params(f=f, m=m, late_amp=amp, cmb=False, transfer=False)
     d = camb.get_background(p)
@@ -150,13 +166,40 @@ def _measure_common_background(f: float, m: float) -> tuple[dict, list[dict]]:
     return measure, amp_evals
 
 
+def _outside_local_penalty(logfm: np.ndarray) -> np.ndarray:
+    penalty = np.zeros(2, dtype=float)
+    for i, value in enumerate(np.asarray(logfm, dtype=float)):
+        if value > LOG_LOCAL_BOUND:
+            penalty[i] = 0.1 + value - LOG_LOCAL_BOUND
+        elif value < -LOG_LOCAL_BOUND:
+            penalty[i] = -0.1 + value + LOG_LOCAL_BOUND
+    return penalty
+
+
 def calibrate_common_background() -> tuple[float, float, float, dict, list[dict], list[dict]]:
     evaluations: list[dict] = []
 
     def residual(logfm: np.ndarray) -> np.ndarray:
-        f = math.exp(float(logfm[0]))
-        m = math.exp(float(logfm[1]))
+        f = F013 * math.exp(float(logfm[0]))
+        m = M013 * math.exp(float(logfm[1]))
+        if not inside_local_corridor(f, m):
+            penalty = _outside_local_penalty(logfm)
+            evaluations.append(
+                {
+                    "status": "outside_local_corridor",
+                    "f": float(f) if math.isfinite(f) else None,
+                    "m": float(m) if math.isfinite(m) else None,
+                    "log_f_ratio": float(logfm[0]),
+                    "log_m_ratio": float(logfm[1]),
+                    "penalty_f": float(penalty[0]),
+                    "penalty_m": float(penalty[1]),
+                }
+            )
+            return penalty
         measure, amp_evals = _measure_common_background(f, m)
+        measure["status"] = "physical_evaluation"
+        measure["log_f_ratio"] = float(logfm[0])
+        measure["log_m_ratio"] = float(logfm[1])
         measure["residual_f_peak"] = measure["f_peak"] - FDE_TARGET
         measure["residual_log10_z_peak"] = measure["log10_z_peak"] - LOG10_ZC_TARGET
         measure["late_amp_eval_count"] = len(amp_evals)
@@ -166,17 +209,38 @@ def calibrate_common_background() -> tuple[float, float, float, dict, list[dict]
             dtype=float,
         )
 
-    f = F013
-    m = M013
-    x0 = np.array([math.log(f), math.log(m)], dtype=float)
-    solved = root(residual, x0, method="hybr", options={"xtol": 1e-10, "maxfev": 80})
-    f = math.exp(float(solved.x[0]))
-    m = math.exp(float(solved.x[1]))
+    x0 = np.array([0.0, 0.0], dtype=float)
+    solved = root(
+        residual,
+        x0,
+        method="hybr",
+        options={"xtol": 1e-10, "maxfev": 80, "eps": 1e-4, "factor": 0.2},
+    )
+    f = F013 * math.exp(float(solved.x[0]))
+    m = M013 * math.exp(float(solved.x[1]))
+    local = inside_local_corridor(f, m)
+    if not local:
+        calibration = {
+            "solver_success": bool(solved.success),
+            "solver_message": str(solved.message),
+            "solver_nfev": int(getattr(solved, "nfev", -1)),
+            "f": float(f) if math.isfinite(f) else None,
+            "m": float(m) if math.isfinite(m) else None,
+            "late_amp": None,
+            "f_peak": None,
+            "z_peak": None,
+            "log10_z_peak": None,
+            "abs_f_peak_residual": None,
+            "abs_log10_z_peak_residual": None,
+            "local_factor2_pass": False,
+            "calibration_pass": False,
+        }
+        return f, m, float("nan"), calibration, evaluations, []
+
     final, amp_evals = _measure_common_background(f, m)
     f_resid = abs(final["f_peak"] - FDE_TARGET)
     z_resid = abs(final["log10_z_peak"] - LOG10_ZC_TARGET)
-    local = (F013 / LOCAL_FACTOR <= f <= F013 * LOCAL_FACTOR) and (M013 / LOCAL_FACTOR <= m <= M013 * LOCAL_FACTOR)
-    calibration_pass = bool(solved.success and local and f_resid <= CAL_F_TOL and z_resid <= CAL_LOGZ_TOL)
+    calibration_pass = bool(local and f_resid <= CAL_F_TOL and z_resid <= CAL_LOGZ_TOL)
     calibration = {
         "solver_success": bool(solved.success),
         "solver_message": str(solved.message),
