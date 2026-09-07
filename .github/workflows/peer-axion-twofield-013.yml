@@ -29,6 +29,7 @@ jobs:
       OMP_NUM_THREADS: '1'
       OPENBLAS_NUM_THREADS: '1'
       MKL_NUM_THREADS: '1'
+      PEER_013_OUT: ${{ github.workspace }}/results/peer-axion-twofield-013
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -81,3 +82,14 @@ jobs:
           print(camb.__version__)
           print(a.late_f, a.late_theta_i, a.late_amp)
           PY
+      - name: Execute preregistered scientific gates
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.r1/camb
+        run: python scripts/run_peer_axion_twofield_013.py
+      - name: Upload test 013 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: T-DE26-PEER-PNGB-AXION-NATIVE-2FIELD-013
+          path: results/peer-axion-twofield-013/
+          if-no-files-found: warn
