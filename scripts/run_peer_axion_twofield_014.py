@@ -5,7 +5,6 @@ import importlib.util
 import json
 import math
 import os
-import sys
 import traceback
 from pathlib import Path
 
@@ -167,7 +166,9 @@ def calibrate_common_background() -> tuple[float, float, float, dict, list[dict]
             dtype=float,
         )
 
-    x0 = np.array([math.log(F013), math.log(M013)], dtype=float)
+    f = F013
+    m = M013
+    x0 = np.array([math.log(f), math.log(m)], dtype=float)
     solved = root(residual, x0, method="hybr", options={"xtol": 1e-10, "maxfev": 80})
     f = math.exp(float(solved.x[0]))
     m = math.exp(float(solved.x[1]))
