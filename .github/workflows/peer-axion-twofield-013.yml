@@ -9,6 +9,13 @@ on:
       - 'tests/test_peer_axion_twofield_013.py'
       - 'scripts/peer_axion_twofield_013_patch.py'
       - 'scripts/run_peer_axion_twofield_013.py'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/peer-axion-twofield-013.yml'
+      - 'tests/test_peer_axion_twofield_013.py'
+      - 'scripts/peer_axion_twofield_013_patch.py'
+      - 'scripts/run_peer_axion_twofield_013.py'
   workflow_dispatch:
 
 permissions:
