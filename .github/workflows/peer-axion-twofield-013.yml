@@ -8,6 +8,7 @@ on:
       - '.github/workflows/peer-axion-twofield-013.yml'
       - 'tests/test_peer_axion_twofield_013.py'
       - 'scripts/peer_axion_twofield_013_patch.py'
+      - 'scripts/peer_013_runtime_hotfix.py'
       - 'scripts/run_peer_axion_twofield_013.py'
   pull_request:
     branches: [main]
@@ -15,6 +16,7 @@ on:
       - '.github/workflows/peer-axion-twofield-013.yml'
       - 'tests/test_peer_axion_twofield_013.py'
       - 'scripts/peer_axion_twofield_013_patch.py'
+      - 'scripts/peer_013_runtime_hotfix.py'
       - 'scripts/run_peer_axion_twofield_013.py'
   workflow_dispatch:
 
@@ -82,6 +84,11 @@ jobs:
           print(camb.__version__)
           print(a.late_f, a.late_theta_i, a.late_amp)
           PY
+      - name: Restore frozen H0 closure diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/peer_013_runtime_hotfix.py scripts/run_peer_axion_twofield_013.py
       - name: Execute preregistered scientific gates
         env:
           PYTHONPATH: ${{ github.workspace }}/.r1/camb
