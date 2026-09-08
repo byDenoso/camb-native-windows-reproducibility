@@ -74,12 +74,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p .r1/act results/generated
+          mkdir -p .r1/act results/generated "$PEER_017_TRAIN_OUT"
           curl -L --fail --retry 3 -o .r1/act/dr6_data_cmbonly.tar.gz https://lambda.gsfc.nasa.gov/data/act/pspipe/sacc_files/dr6_data_cmbonly.tar.gz
           tar -xzf .r1/act/dr6_data_cmbonly.tar.gz -C .r1/act
           fits="$(find .r1/act -name dr6_data_cmbonly.fits -print -quit)"
           test -n "$fits"
-          python scripts/act_public_payload.py "$fits" --output "$PEER_ACT_PAYLOAD" --receipt results/generated/act_payload_receipt.json
+          python scripts/act_public_payload.py "$fits" --output "$PEER_ACT_PAYLOAD" --receipt "$PEER_017_TRAIN_OUT/act_payload_receipt.json"
       - name: Execute preregistered 20-cell ACT-only training
         env:
           PYTHONPATH: ${{ github.workspace }}/scripts:${{ github.workspace }}/.r1/camb
@@ -111,9 +111,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: T-DE26-PEER-PNGB-AXION-ACTTRAIN-SPTHOLDOUT-017-TRAINING
-          path: |
-            results/peer-axion-acttrain-sptholdout-017/training/
-            results/generated/act_payload_receipt.json
+          path: results/peer-axion-acttrain-sptholdout-017/training/
           if-no-files-found: error
 
   spt-holdout:
@@ -138,7 +136,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: T-DE26-PEER-PNGB-AXION-ACTTRAIN-SPTHOLDOUT-017-TRAINING
-          path: ${{ github.workspace }}
+          path: ${{ github.workspace }}/results/peer-axion-acttrain-sptholdout-017/training
       - name: Verify winner predates holdout job
         shell: bash
         run: |
