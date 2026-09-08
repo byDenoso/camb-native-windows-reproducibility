@@ -24,3 +24,155 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/scripts
         run: pytest -q tests/test_peer_axion_acttrain_sptholdout_017.py
+
+  native-act-training:
+    needs: contract-red-green
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    outputs:
+      has_winner: ${{ steps.freeze.outputs.has_winner }}
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      PEER_017_TRAIN_OUT: ${{ github.workspace }}/results/peer-axion-acttrain-sptholdout-017/training
+      PEER_ACT_PAYLOAD: ${{ github.workspace }}/results/generated/act_dr6_cmbonly.bin
+      JAX_ENABLE_X64: 'True'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install numerical and ACT reconstruction dependencies
+        run: python -m pip install --upgrade pip setuptools wheel numpy scipy sacc==2.4
+      - name: Checkout canonical CAMB 1.6.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch 1.6.6 https://github.com/cmbant/CAMB.git .r1/camb
+          test "$(git -C .r1/camb rev-parse HEAD)" = "3ef0272d6f7ba1231128872e56e6d4c12af8267b"
+      - name: Apply frozen native two-field patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.r1/camb/fortran/camb.f90')
+          text = p.read_text()
+          old = "allocate (TEarlyQuintessence::P%DarkEnergy)"
+          assert text.count(old) == 1
+          p.write_text(text.replace(old, "allocate(TEarlyQuintessence :: P%DarkEnergy)", 1))
+          PY
+          python scripts/peer_axion_twofield_013_patch.py .r1/camb
+      - name: Compile patched CAMB 1.6.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .r1/camb
+          python -m pip install -e . --no-build-isolation
+      - name: Materialize and verify exact ACT DR6 payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .r1/act results/generated
+          curl -L --fail --retry 3 -o .r1/act/dr6_data_cmbonly.tar.gz https://lambda.gsfc.nasa.gov/data/act/pspipe/sacc_files/dr6_data_cmbonly.tar.gz
+          tar -xzf .r1/act/dr6_data_cmbonly.tar.gz -C .r1/act
+          fits="$(find .r1/act -name dr6_data_cmbonly.fits -print -quit)"
+          test -n "$fits"
+          python scripts/act_public_payload.py "$fits" --output "$PEER_ACT_PAYLOAD" --receipt results/generated/act_payload_receipt.json
+      - name: Execute preregistered 20-cell ACT-only training
+        env:
+          PYTHONPATH: ${{ github.workspace }}/scripts:${{ github.workspace }}/.r1/camb
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/run_peer_axion_acttrain_017.py
+      - name: Freeze winner before SPT can be opened
+        id: freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f "$PEER_017_TRAIN_OUT/winner_receipt.json"; then
+            python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path(os.environ['PEER_017_TRAIN_OUT'])/'winner_receipt.json'
+          d=json.loads(p.read_text())
+          assert d['SPT_NOT_EVALUATED_WHEN_WRITTEN'] is True
+          assert d['holdout_opened'] is False
+          print('winner frozen:', d['winner']['late_f'], d['winner']['late_delta'], d['winner']['delta_q_act'])
+          PY
+            echo "has_winner=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_winner=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload immutable ACT-training receipt and winner endpoints
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: T-DE26-PEER-PNGB-AXION-ACTTRAIN-SPTHOLDOUT-017-TRAINING
+          path: |
+            results/peer-axion-acttrain-sptholdout-017/training/
+            results/generated/act_payload_receipt.json
+          if-no-files-found: error
+
+  spt-holdout:
+    needs: native-act-training
+    if: needs.native-act-training.outputs.has_winner == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      JAX_ENABLE_X64: 'True'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      PEER_017_TRAIN_IN: ${{ github.workspace }}/results/peer-axion-acttrain-sptholdout-017/training
+      PEER_017_SPT_OUT: ${{ github.workspace }}/results/peer-axion-acttrain-sptholdout-017/spt_holdout
+      PEER_SPT_DATA_REPO: ${{ github.workspace }}/.r1/spt_candl_data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download frozen ACT winner artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: T-DE26-PEER-PNGB-AXION-ACTTRAIN-SPTHOLDOUT-017-TRAINING
+          path: ${{ github.workspace }}
+      - name: Verify winner predates holdout job
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path(os.environ['PEER_017_TRAIN_IN'])/'winner_receipt.json'
+          d=json.loads(p.read_text())
+          assert d['SPT_NOT_EVALUATED_WHEN_WRITTEN'] is True
+          assert d['holdout_opened'] is False
+          print(json.dumps({'winner':d['winner'], 'training_commit':d['workflow_repository_commit']}, indent=2))
+          PY
+      - name: Install frozen SPT likelihood runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip setuptools wheel numpy scipy "candl==2.0.3"
+          git clone https://github.com/SouthPoleTelescope/spt_candl_data.git .r1/spt_candl_data
+          git -C .r1/spt_candl_data checkout --detach bfe809a140087d19412aa6bc8c8d4ba18840b315
+          test "$(git -C .r1/spt_candl_data rev-parse HEAD)" = "bfe809a140087d19412aa6bc8c8d4ba18840b315"
+          python -m pip install -e .r1/spt_candl_data --no-deps
+          python -c "import importlib.metadata as m; assert m.version('candl')=='2.0.3'; import spt_candl_data; print(spt_candl_data.SPT3G_D1_TnE_lite)"
+      - name: Open SPT holdout exactly once on the frozen winner
+        env:
+          PYTHONPATH: ${{ github.workspace }}/scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/run_peer_axion_sptholdout_017.py
+      - name: Upload SPT holdout result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: T-DE26-PEER-PNGB-AXION-ACTTRAIN-SPTHOLDOUT-017-SPT-HOLDOUT
+          path: results/peer-axion-acttrain-sptholdout-017/spt_holdout/
+          if-no-files-found: error
