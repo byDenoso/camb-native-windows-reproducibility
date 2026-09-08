@@ -1,0 +1,26 @@
+name: peer-axion-acttrain-sptholdout-017
+
+on:
+  push:
+    branches:
+      - science/peer-axion-acttrain-sptholdout-017
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-red-green:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest
+      - name: Run 017 contract tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}/scripts
+        run: pytest -q tests/test_peer_axion_acttrain_sptholdout_017.py
