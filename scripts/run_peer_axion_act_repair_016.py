@@ -60,7 +60,7 @@ def active_params_016(*, f: float, m: float, late_amp: float, cmb: bool, transfe
     return p
 
 
-# The 014 calibration machinery is reused exactly except for the frozen 016 late witness.
+# Reuse the frozen 014 calibration machinery with only the pre-ACT 016 late witness changed.
 b14.active_params = active_params_016
 
 
@@ -70,9 +70,12 @@ def calibration_and_background():
     d = camb.get_background(p)
     derived = d.get_derived_params()
     de = d.Params.DarkEnergy
-    q0 = float(b14.base.deceleration_parameter(d, 0.0))
+    h00 = float(d.hubble_parameter(0.0))
+    dz = 1.0e-4
+    h01 = float(d.hubble_parameter(dz))
+    q0 = -1.0 + (h01 - h00) / dz / h00
     background = {
-        "H0": float(d.hubble_parameter(0.0)),
+        "H0": h00,
         "rdrag": float(derived["rdrag"]),
         "rstar": float(derived["rstar"]),
         "theta100": float(derived["thetastar"]),
@@ -81,7 +84,7 @@ def calibration_and_background():
         "log10_z_peak": float(math.log10(de.zc)),
         "late_w0": float(de.late_w0),
         "late_rho_ratio0": float(de.late_rho_ratio0),
-        "q0": q0,
+        "q0": float(q0),
     }
     g1 = bool(
         calibration["calibration_pass"]
@@ -137,7 +140,6 @@ def main() -> None:
         print(json.dumps(summary, indent=2, sort_keys=True))
         raise SystemExit(2)
 
-    # Recompute the complete 014-style existence battery for this new physical revision.
     _, active_full = b14.run_full_active(f, m, amp)
     _, r1_full = b14.run_full_comparator(f, m)
     a_arrays = b14.base.cmb_arrays(active_full)
@@ -163,9 +165,13 @@ def main() -> None:
     g4 = bool(metrics["finite_outputs"] and deterministic_full)
     g5 = bool(cmbm["TT_rms_fractional"] < 0.02 and cmbm["EE_rms_fractional"] < 0.02 and cmbm["TE_rms_normalized"] < 0.02)
     g6 = bool(cmbm["phiphi_rms_fractional"] < 0.05)
-    g7 = bool(gg["BAO_max_abs_fractional"] < 0.01 and abs(gg["sigma8_fractional"]) < 0.05 and abs(gg["fsigma8_fractional"]) < 0.05 and gg["SN_mu_RMS_mag_after_offset"] < 0.02)
+    g7 = bool(
+        gg["BAO_max_abs_fractional"] < 0.01
+        and abs(gg["sigma8_fractional"]) < 0.05
+        and abs(gg["fsigma8_fractional"]) < 0.05
+        and gg["SN_mu_RMS_mag_after_offset"] < 0.02
+    )
 
-    # ACT endpoints, repeated active for byte determinism.
     _, act_a = high_l_endpoint("active", f=f, m=m, amp=amp)
     _, act_a2 = high_l_endpoint("active", f=f, m=m, amp=amp)
     _, act_r1 = high_l_endpoint("r1", f=f, m=m, amp=amp)
@@ -207,6 +213,11 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except BaseException as exc:
-        failure = {"test_id": TEST_ID, "status": "EXECUTION_FAILURE", "exception": repr(exc), "traceback": traceback.format_exc()}
+        failure = {
+            "test_id": TEST_ID,
+            "status": "EXECUTION_FAILURE",
+            "exception": repr(exc),
+            "traceback": traceback.format_exc(),
+        }
         (OUT / "failure.json").write_text(json.dumps(failure, indent=2, sort_keys=True) + "\n")
         raise
