@@ -24,3 +24,59 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/scripts
         run: pytest -q tests/test_peer_axion_act_repair_016.py
+
+  native-pre-act-battery:
+    needs: contract-red-green
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      PEER_016_OUT: ${{ github.workspace }}/results/peer-axion-act-repair-016
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install numerical dependencies
+        run: python -m pip install --upgrade pip setuptools wheel numpy scipy
+      - name: Checkout canonical CAMB 1.6.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch 1.6.6 https://github.com/cmbant/CAMB.git .r1/camb
+          test "$(git -C .r1/camb rev-parse HEAD)" = "3ef0272d6f7ba1231128872e56e6d4c12af8267b"
+      - name: Apply frozen native two-field patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.r1/camb/fortran/camb.f90')
+          text = p.read_text()
+          old = "allocate (TEarlyQuintessence::P%DarkEnergy)"
+          assert text.count(old) == 1
+          p.write_text(text.replace(old, "allocate(TEarlyQuintessence :: P%DarkEnergy)", 1))
+          PY
+          python scripts/peer_axion_twofield_013_patch.py .r1/camb
+      - name: Compile patched CAMB 1.6.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .r1/camb
+          python -m pip install -e . --no-build-isolation
+      - name: Execute preregistered 016 pre-ACT native battery
+        env:
+          PYTHONPATH: ${{ github.workspace }}/scripts:${{ github.workspace }}/.r1/camb
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/run_peer_axion_act_repair_016.py
+      - name: Upload 016 endpoint evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: T-DE26-PEER-PNGB-AXION-ACT-REPAIR-016-PREACT
+          path: results/peer-axion-act-repair-016/
+          if-no-files-found: warn
