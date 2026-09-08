@@ -131,7 +131,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
       - name: Download frozen ACT winner artifact
         uses: actions/download-artifact@v4
         with:
@@ -154,12 +154,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip setuptools wheel numpy scipy "candl==2.0.3"
+          python -m pip install --upgrade pip setuptools wheel
+          git clone https://github.com/Lbalkenhol/candl.git .r1/candl
+          git -C .r1/candl checkout --detach 650db0a6a0a2febed1e57350f0b991b537a4d2f7
+          test "$(git -C .r1/candl rev-parse HEAD)" = "650db0a6a0a2febed1e57350f0b991b537a4d2f7"
+          python -m pip install .r1/candl
           git clone https://github.com/SouthPoleTelescope/spt_candl_data.git .r1/spt_candl_data
           git -C .r1/spt_candl_data checkout --detach bfe809a140087d19412aa6bc8c8d4ba18840b315
           test "$(git -C .r1/spt_candl_data rev-parse HEAD)" = "bfe809a140087d19412aa6bc8c8d4ba18840b315"
           python -m pip install -e .r1/spt_candl_data --no-deps
-          python -c "import importlib.metadata as m; assert m.version('candl')=='2.0.3'; import spt_candl_data; print(spt_candl_data.SPT3G_D1_TnE_lite)"
+          python - <<'PY'
+          import candl, spt_candl_data
+          assert candl.__version__ == '2.2.0'
+          print(candl.__version__)
+          print(spt_candl_data.SPT3G_D1_TnE_lite)
+          PY
       - name: Open SPT holdout exactly once on the frozen winner
         env:
           PYTHONPATH: ${{ github.workspace }}/scripts
