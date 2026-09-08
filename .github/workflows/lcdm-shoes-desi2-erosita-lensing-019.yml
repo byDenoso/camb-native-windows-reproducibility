@@ -1,0 +1,50 @@
+name: lcdm-shoes-desi2-erosita-lensing-019
+
+on:
+  push:
+    branches:
+      - science/lcdm-shoes-desi2-erosita-lensing-019
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-red-green:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest numpy scipy
+      - name: Run 019 contract tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}/scripts
+        run: pytest -q tests/test_lcdm_shoes_desi2_erosita_lensing_019.py
+
+  execute-battery:
+    needs: contract-red-green
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: ${{ github.workspace }}/scripts
+      LCDM_019_OUT: ${{ github.workspace }}/results/lcdm-shoes-desi2-erosita-lensing-019
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install runtime dependencies
+        run: python -m pip install --upgrade pip numpy scipy
+      - name: Execute frozen LCDM 019 battery
+        run: python scripts/run_lcdm_shoes_desi2_erosita_lensing_019.py
+      - name: Upload immutable 019 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: T-DE26-LCDM-SHOES-DESI2-EROSITA-LENSING-019
+          path: results/lcdm-shoes-desi2-erosita-lensing-019/
+          if-no-files-found: error
