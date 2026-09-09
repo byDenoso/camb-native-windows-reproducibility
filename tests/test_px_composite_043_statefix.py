@@ -32,4 +32,5 @@ def test_kindfix_renames_late_density_perturbation_without_shadowing_dl_kind() -
     fixed = fix_generated_fortran_kind_shadow(source)
     assert ", dl, vl," not in fixed
     assert fixed.count("dlate") == 4
-    assert fixed.count("_dl") == 3
+    assert fixed.count("_dl") == 2
+    assert "real(dl)" in fixed
