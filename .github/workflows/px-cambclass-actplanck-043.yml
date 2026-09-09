@@ -23,7 +23,7 @@ jobs:
       - name: Run 043 unit and patch tests
         env:
           PYTHONPATH: ${{ github.workspace }}/scripts
-        run: pytest -q tests/test_px_cambclass_actplanck_043.py tests/test_px_043_model_reference.py tests/test_px_composite_043_patch.py tests/test_px_043_likelihood_adapter.py
+        run: pytest -q tests/test_px_cambclass_actplanck_043.py tests/test_px_043_model_reference.py tests/test_px_composite_043_patch.py tests/test_px_composite_043_statefix.py tests/test_px_043_likelihood_adapter.py
 
   native-act-planck-holdout:
     needs: contract-red-green
@@ -61,7 +61,7 @@ jobs:
           p.write_text(text.replace(old,"allocate(TEarlyQuintessence :: P%DarkEnergy)",1))
           PY
           python scripts/peer_axion_twofield_013_patch.py .r1/camb
-          python scripts/px_composite_043_patch.py .r1/camb
+          python scripts/px_composite_043_patch_v2.py .r1/camb
       - name: Compile patched canonical CAMB
         shell: bash
         run: |
