@@ -13,10 +13,10 @@ def test_cmb_clipy_order_is_tt_ee_bb_te_tb_eb() -> None:
     raw[:, 3] = [40, 41, 42, 43, 44, 45]
     out = build_cmb_clipy_cls(raw)
     assert out.shape == (6, 6)
-    assert np.all(out[0, :4] == raw[:, 0])
-    assert np.all(out[1, :4] == raw[:, 1])
-    assert np.all(out[2, :4] == raw[:, 2])
-    assert np.all(out[3, :4] == raw[:, 3])
+    assert np.all(out[0] == raw[:, 0])
+    assert np.all(out[1] == raw[:, 1])
+    assert np.all(out[2] == raw[:, 2])
+    assert np.all(out[3] == raw[:, 3])
     assert np.all(out[4] == 0.0)
     assert np.all(out[5] == 0.0)
 
