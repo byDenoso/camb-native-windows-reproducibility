@@ -23,7 +23,7 @@ jobs:
       - name: Run 043 unit and patch tests
         env:
           PYTHONPATH: ${{ github.workspace }}/scripts
-        run: pytest -q tests/test_px_cambclass_actplanck_043.py tests/test_px_043_model_reference.py tests/test_px_composite_043_patch.py tests/test_px_composite_043_statefix.py tests/test_px_043_likelihood_adapter.py
+        run: pytest -q tests/test_px_cambclass_actplanck_043.py tests/test_px_043_model_reference.py tests/test_px_composite_043_patch.py tests/test_px_composite_043_statefix.py tests/test_px_043_likelihood_adapter.py tests/test_acquire_act_dr6_043.py
 
   native-act-planck-holdout:
     needs: contract-red-green
