@@ -8,6 +8,7 @@ on:
       - '.github/workflows/peer-axion-twofield-014.yml'
       - 'tests/test_peer_axion_twofield_014_contract.py'
       - 'scripts/run_peer_axion_twofield_014.py'
+      - 'scripts/peer_014_desi_dr2_full13.py'
       - 'scripts/peer_axion_twofield_013_patch.py'
       - 'scripts/run_peer_axion_twofield_013.py'
   pull_request:
@@ -16,6 +17,7 @@ on:
       - '.github/workflows/peer-axion-twofield-014.yml'
       - 'tests/test_peer_axion_twofield_014_contract.py'
       - 'scripts/run_peer_axion_twofield_014.py'
+      - 'scripts/peer_014_desi_dr2_full13.py'
       - 'scripts/peer_axion_twofield_013_patch.py'
       - 'scripts/run_peer_axion_twofield_013.py'
   workflow_dispatch:
@@ -90,6 +92,10 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/.r1/camb
         run: python -X faulthandler scripts/run_peer_axion_twofield_014.py
+      - name: Execute exact DESI DR2 full13 continuation
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.r1/camb
+        run: python -X faulthandler scripts/peer_014_desi_dr2_full13.py
       - name: Upload test 014 evidence
         if: always()
         uses: actions/upload-artifact@v4
