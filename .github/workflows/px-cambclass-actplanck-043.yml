@@ -75,20 +75,13 @@ jobs:
           git clone https://github.com/ACTCollaboration/DR6-ACT-lite.git .r1/DR6-ACT-lite
           git -C .r1/DR6-ACT-lite checkout --detach 627aeafb88ae5ad1aa66b406bea2d65cfa66a27d
           test "$(git -C .r1/DR6-ACT-lite rev-parse HEAD)" = "627aeafb88ae5ad1aa66b406bea2d65cfa66a27d"
-          python - <<'PY'
-          from pathlib import Path
-          import hashlib
-          target='c887dc9178d81f5e5e0ce76eca0cd3c9f089056630ab78a1cc4bb28ff8751c29'
-          hits=[]
-          for p in Path('.r1/DR6-ACT-lite').rglob('*.fits'):
-              h=hashlib.sha256(p.read_bytes()).hexdigest()
-              if h==target: hits.append(p)
-          if len(hits)!=1: raise SystemExit(f'expected one ACT FITS match, found {hits}')
-          Path('.r1/act_fits_path.txt').write_text(str(hits[0]))
-          print(hits[0])
-          PY
-          ACT_FITS="$(cat .r1/act_fits_path.txt)"
-          python scripts/act_public_payload.py "$ACT_FITS" --output .r1/act_dr6_cmbonly.bin --receipt results/px-043/act-receipt.json
+          python scripts/acquire_act_dr6_043.py \
+            --work .r1/act-dr6-043 \
+            --output .r1/act_dr6_source.fits \
+            --receipt results/px-043/act-acquisition-receipt.json
+          python scripts/act_public_payload.py .r1/act_dr6_source.fits \
+            --output .r1/act_dr6_cmbonly.bin \
+            --receipt results/px-043/act-receipt.json
       - name: Acquire verified Planck 2018 baseline likelihoods
         shell: bash
         run: |
