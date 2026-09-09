@@ -20,7 +20,7 @@ jobs:
           python-version: '3.12'
       - name: Install test dependencies
         run: python -m pip install --upgrade pip pytest
-      - name: Run 043 contract and reference-model tests
+      - name: Run 043 unit and patch tests
         env:
           PYTHONPATH: ${{ github.workspace }}/scripts
-        run: pytest -q tests/test_px_cambclass_actplanck_043.py tests/test_px_043_model_reference.py
+        run: pytest -q tests/test_px_cambclass_actplanck_043.py tests/test_px_043_model_reference.py tests/test_px_composite_043_patch.py
