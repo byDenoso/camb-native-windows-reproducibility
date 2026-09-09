@@ -1,0 +1,1 @@
+Trigger-only marker for Windows R1 after enforcing canonical Git bytes for Pantheon+ at frozen commit c447f0fea703fcd0fff57de5000947b5ca81286b. Scientific hashes, tolerances, datasets, and algorithms are unchanged.
