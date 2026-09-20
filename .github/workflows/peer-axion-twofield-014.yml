@@ -1,0 +1,99 @@
+name: peer-axion-twofield-014
+
+on:
+  push:
+    branches:
+      - science/peer-axion-twofield-014
+    paths:
+      - '.github/workflows/peer-axion-twofield-014.yml'
+      - 'tests/test_peer_axion_twofield_014_contract.py'
+      - 'scripts/run_peer_axion_twofield_014.py'
+      - 'scripts/peer_axion_twofield_013_patch.py'
+      - 'scripts/run_peer_axion_twofield_013.py'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/peer-axion-twofield-014.yml'
+      - 'tests/test_peer_axion_twofield_014_contract.py'
+      - 'scripts/run_peer_axion_twofield_014.py'
+      - 'scripts/peer_axion_twofield_013_patch.py'
+      - 'scripts/run_peer_axion_twofield_013.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-two-field-recalibration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      PYTHONFAULTHANDLER: '1'
+      PEER_014_OUT: ${{ github.workspace }}/results/peer-axion-twofield-014
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test/runtime dependencies
+        run: python -m pip install --upgrade pip setuptools wheel pytest numpy scipy
+      - name: Checkout canonical CAMB 1.6.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch 1.6.6 https://github.com/cmbant/CAMB.git .r1/camb
+          test "$(git -C .r1/camb rev-parse HEAD)" = "3ef0272d6f7ba1231128872e56e6d4c12af8267b"
+      - name: Apply frozen native two-field patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.r1/camb/fortran/camb.f90')
+          text = p.read_text()
+          old = "allocate (TEarlyQuintessence::P%DarkEnergy)"
+          assert text.count(old) == 1
+          p.write_text(text.replace(old, "allocate(TEarlyQuintessence :: P%DarkEnergy)", 1))
+          PY
+          python scripts/peer_axion_twofield_013_patch.py .r1/camb
+      - name: GREEN software and 014 contract tests
+        env:
+          CAMB_SOURCE: ${{ github.workspace }}/.r1/camb
+        run: pytest -q tests/test_peer_axion_twofield_013.py tests/test_peer_axion_twofield_014_contract.py
+      - name: Compile patched CAMB 1.6.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .r1/camb
+          python -m pip install -e . --no-build-isolation
+      - name: Load native two-field classes
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.r1/camb
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import camb
+          from camb import dark_energy
+          a = dark_energy.PeerAxionTwoField()
+          c = dark_energy.DeformedEarlyQuintessence()
+          assert camb.__version__ == '1.6.6'
+          assert type(a).__name__ == 'PeerAxionTwoField'
+          assert type(c).__name__ == 'DeformedEarlyQuintessence'
+          print(camb.__version__)
+          print(a.late_f, a.late_theta_i, a.late_amp)
+          PY
+      - name: Execute preregistered scientific gates 014
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.r1/camb
+        run: python -X faulthandler scripts/run_peer_axion_twofield_014.py
+      - name: Upload test 014 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: T-DE26-PEER-PNGB-AXION-NATIVE-2FIELD-RECAL-014
+          path: results/peer-axion-twofield-014/
+          if-no-files-found: warn
