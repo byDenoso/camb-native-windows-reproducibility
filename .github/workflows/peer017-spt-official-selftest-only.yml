@@ -1,0 +1,56 @@
+name: peer017-spt-official-selftest-only
+
+on:
+  push:
+    branches:
+      - science/peer017-candl203-staged-20261122
+    paths:
+      - .github/workflows/peer017-spt-official-selftest-only.yml
+
+permissions:
+  contents: read
+
+jobs:
+  spt-official-selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      JAX_ENABLE_X64: 'True'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install exactly pinned official SPT runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip setuptools wheel
+          mkdir -p .r1
+          git clone https://github.com/Lbalkenhol/candl.git .r1/candl
+          git -C .r1/candl checkout --detach 6fdec206014203eb9bc1e4bbae2e8c6d5e83db32
+          test "$(git -C .r1/candl rev-parse HEAD)" = "6fdec206014203eb9bc1e4bbae2e8c6d5e83db32"
+          python -m pip install .r1/candl
+          git clone https://github.com/SouthPoleTelescope/spt_candl_data.git .r1/spt_candl_data
+          git -C .r1/spt_candl_data checkout --detach bfe809a140087d19412aa6bc8c8d4ba18840b315
+          test "$(git -C .r1/spt_candl_data rev-parse HEAD)" = "bfe809a140087d19412aa6bc8c8d4ba18840b315"
+          python -m pip install -e .r1/spt_candl_data --no-deps
+      - name: Official golden self-test only; no ACT or SPT holdout scoring
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE/scripts" python - <<'PY'
+          import importlib.metadata as md
+          import json
+          from run_peer_axion_sptholdout_017 import load_like, official_self_test
+          from peer_017_contract import SPT_OFFICIAL_TEST_LOGL
+          assert md.version("candl-like") == "2.0.3"
+          like, _, spt = load_like()
+          result = official_self_test(like, spt)
+          assert abs(result["expected_logl"] - SPT_OFFICIAL_TEST_LOGL) < 1e-12
+          print(json.dumps({"mode": "official_selftest_only", "candl_distribution_version": md.version("candl-like"), "data_commit": "bfe809a140087d19412aa6bc8c8d4ba18840b315", **result}, sort_keys=True))
+          assert result["pass"], result
+          PY
