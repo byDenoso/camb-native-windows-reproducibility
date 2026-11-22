@@ -38,7 +38,7 @@ def load_like():
     import candl
     import spt_candl_data
 
-    version = metadata.version("candl")
+    version = metadata.version("candl-like")
     if version != SPT_CANDL_VERSION:
         raise RuntimeError(f"candl version mismatch: {version}")
     like = candl.Like(spt_candl_data.SPT3G_D1_TnE_lite, feedback=False)
@@ -152,7 +152,7 @@ def main() -> None:
         "spt_authority": {
             "repository": "SouthPoleTelescope/spt_candl_data",
             "commit": SPT_DATA_COMMIT,
-            "candl_version": metadata.version("candl"),
+            "candl_version": metadata.version("candl-like"),
             "dataset": "SPT3G_D1_TnE_lite",
             "n_bins": int(like.N_bins_total),
             "ell_max": int(like.ell_max),
