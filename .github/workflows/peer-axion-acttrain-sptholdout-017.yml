@@ -156,8 +156,8 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip setuptools wheel
           git clone https://github.com/Lbalkenhol/candl.git .r1/candl
-          git -C .r1/candl checkout --detach 650db0a6a0a2febed1e57350f0b991b537a4d2f7
-          test "$(git -C .r1/candl rev-parse HEAD)" = "650db0a6a0a2febed1e57350f0b991b537a4d2f7"
+          git -C .r1/candl checkout --detach 6fdec206014203eb9bc1e4bbae2e8c6d5e83db32
+          test "$(git -C .r1/candl rev-parse HEAD)" = "6fdec206014203eb9bc1e4bbae2e8c6d5e83db32"
           python -m pip install .r1/candl
           git clone https://github.com/SouthPoleTelescope/spt_candl_data.git .r1/spt_candl_data
           git -C .r1/spt_candl_data checkout --detach bfe809a140087d19412aa6bc8c8d4ba18840b315
@@ -165,7 +165,7 @@ jobs:
           python -m pip install -e .r1/spt_candl_data --no-deps
           python - <<'PY'
           import candl, spt_candl_data
-          assert candl.__version__ == '2.2.0'
+          assert candl.__version__ == '2.0.3'
           print(candl.__version__)
           print(spt_candl_data.SPT3G_D1_TnE_lite)
           PY
